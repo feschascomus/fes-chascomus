@@ -1,25 +1,27 @@
 import Link from "next/link"
-import { supabase } from "@/lib/supabase"
+import { redirect } from "next/navigation"
 import { QRCodeSVG } from "qrcode.react"
+import { createClient } from "@/lib/supabase/server"
 
 export default async function CarnePage({ params }) {
   const { codigo } = await params
+  const supabase = await createClient()
 
-  const { data, error } = await supabase
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect("/login")
+  }
+
+  const { data: estudiante, error } = await supabase
     .from("estudiantes")
     .select("*")
     .eq("codigo", codigo)
+    .maybeSingle()
 
-  if (error) {
-    return (
-      <div style={{ padding: 40 }}>
-        <h1>Error</h1>
-        <pre>{JSON.stringify(error, null, 2)}</pre>
-      </div>
-    )
-  }
-
-  if (!data || data.length === 0) {
+  if (error || !estudiante) {
     return (
       <div style={{ padding: 40 }}>
         <h1>Carné no encontrado</h1>
@@ -28,7 +30,17 @@ export default async function CarnePage({ params }) {
     )
   }
 
-  const estudiante = data[0]
+  const esMismoUsuario =
+    (estudiante.auth_user_id && estudiante.auth_user_id === user.id) ||
+    (user.email && estudiante.email === user.email)
+
+  if (!esMismoUsuario) {
+    redirect("/login")
+  }
+
+  if (estudiante.activo === false) {
+    redirect("/login")
+  }
 
   const { data: escuelas } = await supabase
     .from("escuelas")

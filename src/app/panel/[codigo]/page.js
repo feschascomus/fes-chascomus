@@ -14,38 +14,40 @@ export default async function PanelPage({ params }) {
     redirect("/login")
   }
 
+  let usuario = null
+
   const { data, error } = await supabase
     .from("estudiantes")
     .select("*")
     .eq("codigo", codigo)
+    .maybeSingle()
 
-  if (error) {
-    return (
-      <main className="min-h-screen bg-slate-100 p-4 sm:p-6">
-        <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow p-6">
-          <h1 className="text-3xl font-bold mb-4">Error</h1>
-          <pre className="bg-slate-100 p-4 rounded-2xl overflow-auto text-sm">
-            {JSON.stringify(error, null, 2)}
-          </pre>
-        </div>
-      </main>
-    )
-  }
-
-  if (!data || data.length === 0) {
+  if (error || !data) {
     return (
       <main className="min-h-screen bg-slate-100 p-4 sm:p-6">
         <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow p-6">
           <h1 className="text-3xl font-bold mb-4">Usuario no encontrado</h1>
           <p className="text-slate-600">
-            No existe un estudiante con ese código o no tenés permisos para verlo.
+            No existe un estudiante con ese código.
           </p>
         </div>
       </main>
     )
   }
 
-  const usuario = data[0]
+  usuario = data
+
+  const esMismoUsuario =
+    (usuario.auth_user_id && usuario.auth_user_id === user.id) ||
+    (user.email && usuario.email === user.email)
+
+  if (!esMismoUsuario) {
+    redirect("/login")
+  }
+
+  if (usuario.activo === false) {
+    redirect("/login")
+  }
 
   const { data: escuelas } = await supabase
     .from("escuelas")
