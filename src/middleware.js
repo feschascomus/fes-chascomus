@@ -35,26 +35,47 @@ export async function middleware(req) {
     "/publicar-cuadernillo",
   ]
 
-  const rutasPublicasAuth = [
-    "/login",
-    "/registro",
-  ]
+  const rutasAuth = ["/login", "/registro", "/recuperar", "/nueva-password"]
 
   const requiereLogin = rutasPrivadas.some((ruta) =>
     pathname.startsWith(ruta)
   )
 
-  const esRutaAuth = rutasPublicasAuth.some((ruta) =>
+  const esRutaAuth = rutasAuth.some((ruta) =>
     pathname.startsWith(ruta)
   )
 
-  if (requiereLogin && !user) {
+  let perfil = null
+
+  if (user) {
+    const { data: porAuthId } = await supabase
+      .from("estudiantes")
+      .select("codigo,activo")
+      .eq("auth_user_id", user.id)
+      .maybeSingle()
+
+    if (porAuthId) {
+      perfil = porAuthId
+    } else if (user.email) {
+      const { data: porEmail } = await supabase
+        .from("estudiantes")
+        .select("codigo,activo")
+        .eq("email", user.email)
+        .maybeSingle()
+
+      perfil = porEmail
+    }
+  }
+
+  const usuarioActivo = !!perfil && perfil.activo === true
+
+  if (requiereLogin && (!user || !usuarioActivo)) {
     const url = req.nextUrl.clone()
     url.pathname = "/login"
     return NextResponse.redirect(url)
   }
 
-  if (esRutaAuth && user) {
+  if (esRutaAuth && user && usuarioActivo) {
     const url = req.nextUrl.clone()
     url.pathname = "/panel"
     return NextResponse.redirect(url)
@@ -72,5 +93,7 @@ export const config = {
     "/publicar-cuadernillo/:path*",
     "/login",
     "/registro",
+    "/recuperar",
+    "/nueva-password",
   ],
 }
