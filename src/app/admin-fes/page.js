@@ -8,7 +8,6 @@ export default function AdminFesPage() {
   const supabase = createClient()
 
   const [usuario, setUsuario] = useState(null)
-
   const [estudiantes, setEstudiantes] = useState([])
   const [escuelas, setEscuelas] = useState([])
   const [promociones, setPromociones] = useState([])
@@ -22,17 +21,9 @@ export default function AdminFesPage() {
   const [filtroRol, setFiltroRol] = useState("todos")
   const [filtroActivo, setFiltroActivo] = useState("todos")
 
-  const [busquedaPromocion, setBusquedaPromocion] = useState("")
-  const [filtroPromocionEstado, setFiltroPromocionEstado] = useState("todas")
-
-  const [busquedaNovedad, setBusquedaNovedad] = useState("")
-  const [filtroNovedadEstado, setFiltroNovedadEstado] = useState("todas")
-  const [filtroNovedadEscuela, setFiltroNovedadEscuela] = useState("todas")
-
-  const [busquedaCuadernillo, setBusquedaCuadernillo] = useState("")
-  const [filtroCuadernilloEstado, setFiltroCuadernilloEstado] = useState("todos")
   const [filtroCuadernilloEscuela, setFiltroCuadernilloEscuela] = useState("todas")
   const [filtroCuadernilloAnio, setFiltroCuadernilloAnio] = useState("todos")
+  const [filtroCuadernilloEstado, setFiltroCuadernilloEstado] = useState("todos")
 
   const [nuevoNombre, setNuevoNombre] = useState("")
   const [nuevoDni, setNuevoDni] = useState("")
@@ -125,10 +116,10 @@ export default function AdminFesPage() {
     setCargando(false)
   }
 
-  const cambiarRol = async (estudianteId, nuevoRolValue) => {
+  const cambiarRol = async (estudianteId, nuevoRol) => {
     const { error } = await supabase
       .from("estudiantes")
-      .update({ rol: nuevoRolValue })
+      .update({ rol: nuevoRol })
       .eq("id", estudianteId)
 
     if (error) {
@@ -138,7 +129,7 @@ export default function AdminFesPage() {
 
     setEstudiantes((prev) =>
       prev.map((item) =>
-        item.id === estudianteId ? { ...item, rol: nuevoRolValue } : item
+        item.id === estudianteId ? { ...item, rol: nuevoRol } : item
       )
     )
   }
@@ -215,9 +206,69 @@ export default function AdminFesPage() {
     )
   }
 
+  const eliminarUsuario = async (estudianteId, nombre) => {
+    const confirmar = window.confirm(
+      `¿Seguro que querés eliminar permanentemente a ${nombre}? Esta acción borra la cuenta de acceso y no se puede deshacer.`
+    )
+
+    if (!confirmar) return
+
+    const res = await fetch("/api/admin/delete-user", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ estudianteId }),
+    })
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo eliminar el usuario")
+      return
+    }
+
+    alert("Usuario eliminado permanentemente")
+    setEstudiantes((prev) => prev.filter((item) => item.id !== estudianteId))
+  }
+
+  const eliminarItem = async (tipo, id, textoConfirmacion) => {
+    const confirmar = window.confirm(textoConfirmacion)
+    if (!confirmar) return
+
+    const res = await fetch("/api/admin/delete-item", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tipo, id }),
+    })
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo eliminar")
+      return
+    }
+
+    if (tipo === "promocion") {
+      setPromociones((prev) => prev.filter((item) => item.id !== id))
+    }
+
+    if (tipo === "novedad") {
+      setNovedades((prev) => prev.filter((item) => item.id !== id))
+    }
+
+    if (tipo === "cuadernillo") {
+      setCuadernillos((prev) => prev.filter((item) => item.id !== id))
+    }
+
+    alert("Eliminado permanentemente")
+  }
+
   const crearUsuario = async () => {
     if (!nuevoNombre || !nuevoDni || !nuevoEmail || !nuevoPassword || !nuevaEscuela || !nuevoAnio || !nuevoRol) {
-      alert("Completá todos los campos del usuario")
+      alert("Completá todos los campos")
       return
     }
 
@@ -262,7 +313,7 @@ export default function AdminFesPage() {
 
   const crearPromocion = async () => {
     if (!nuevoComercio || !nuevoDescuento) {
-      alert("Completá al menos comercio y descuento")
+      alert("Completá comercio y descuento")
       return
     }
 
@@ -287,11 +338,9 @@ export default function AdminFesPage() {
     }
 
     alert("Promoción creada correctamente")
-
     setNuevoComercio("")
     setNuevoDescuento("")
     setNuevaDescripcionPromo("")
-
     await cargarTodo()
   }
 
@@ -322,61 +371,8 @@ export default function AdminFesPage() {
     })
   }, [estudiantes, busquedaEstudiante, filtroRol, filtroActivo])
 
-  const promocionesFiltradas = useMemo(() => {
-    const q = busquedaPromocion.trim().toLowerCase()
-
-    return promociones.filter((promo) => {
-      const coincideTexto =
-        q === "" ||
-        String(promo.comercio || "").toLowerCase().includes(q) ||
-        String(promo.descuento || "").toLowerCase().includes(q) ||
-        String(promo.descripcion || "").toLowerCase().includes(q)
-
-      const coincideEstado =
-        filtroPromocionEstado === "todas" ||
-        (filtroPromocionEstado === "activas" && promo.activo === true) ||
-        (filtroPromocionEstado === "inactivas" && promo.activo === false)
-
-      return coincideTexto && coincideEstado
-    })
-  }, [promociones, busquedaPromocion, filtroPromocionEstado])
-
-  const novedadesFiltradas = useMemo(() => {
-    const q = busquedaNovedad.trim().toLowerCase()
-
-    return novedades.filter((novedad) => {
-      const coincideTexto =
-        q === "" ||
-        String(novedad.titulo || "").toLowerCase().includes(q) ||
-        String(novedad.contenido || "").toLowerCase().includes(q)
-
-      const coincideEstado =
-        filtroNovedadEstado === "todas" ||
-        (filtroNovedadEstado === "activas" && novedad.activo === true) ||
-        (filtroNovedadEstado === "inactivas" && novedad.activo === false)
-
-      const coincideEscuela =
-        filtroNovedadEscuela === "todas" ||
-        String(novedad.escuela_codigo) === filtroNovedadEscuela
-
-      return coincideTexto && coincideEstado && coincideEscuela
-    })
-  }, [novedades, busquedaNovedad, filtroNovedadEstado, filtroNovedadEscuela])
-
   const cuadernillosFiltrados = useMemo(() => {
-    const q = busquedaCuadernillo.trim().toLowerCase()
-
     return cuadernillos.filter((item) => {
-      const coincideTexto =
-        q === "" ||
-        String(item.titulo || "").toLowerCase().includes(q) ||
-        String(item.descripcion || "").toLowerCase().includes(q)
-
-      const coincideEstado =
-        filtroCuadernilloEstado === "todos" ||
-        (filtroCuadernilloEstado === "activos" && item.activo === true) ||
-        (filtroCuadernilloEstado === "inactivos" && item.activo === false)
-
       const coincideEscuela =
         filtroCuadernilloEscuela === "todas" ||
         String(item.escuela_codigo) === filtroCuadernilloEscuela
@@ -385,15 +381,14 @@ export default function AdminFesPage() {
         filtroCuadernilloAnio === "todos" ||
         String(item.anio) === filtroCuadernilloAnio
 
-      return coincideTexto && coincideEstado && coincideEscuela && coincideAnio
+      const coincideEstado =
+        filtroCuadernilloEstado === "todos" ||
+        (filtroCuadernilloEstado === "activos" && item.activo === true) ||
+        (filtroCuadernilloEstado === "inactivos" && item.activo === false)
+
+      return coincideEscuela && coincideAnio && coincideEstado
     })
-  }, [
-    cuadernillos,
-    busquedaCuadernillo,
-    filtroCuadernilloEstado,
-    filtroCuadernilloEscuela,
-    filtroCuadernilloAnio,
-  ])
+  }, [cuadernillos, filtroCuadernilloEscuela, filtroCuadernilloAnio, filtroCuadernilloEstado])
 
   if (cargando) {
     return (
@@ -447,7 +442,7 @@ export default function AdminFesPage() {
           </h1>
 
           <p className="mt-4 max-w-2xl text-blue-100">
-            Administrá estudiantes, roles, usuarios activos, escuelas, promociones, novedades y cuadernillos de toda la plataforma.
+            Administrá estudiantes, promociones, novedades, cuadernillos y escuelas de toda la plataforma.
           </p>
         </section>
 
@@ -458,7 +453,7 @@ export default function AdminFesPage() {
           </div>
 
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
-            <p className="text-sm text-slate-500">Usuarios activos</p>
+            <p className="text-sm text-slate-500">Activos</p>
             <p className="mt-2 text-3xl font-bold text-slate-900">
               {estudiantes.filter((x) => x.activo).length}
             </p>
@@ -480,194 +475,89 @@ export default function AdminFesPage() {
           </div>
         </section>
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">Crear nuevo usuario</h2>
-              <p className="mt-2 text-slate-600">
-                Creá estudiantes, centros o usuarios FES directamente desde el panel.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <input
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              placeholder="Nombre"
-              value={nuevoNombre}
-              onChange={(e) => setNuevoNombre(e.target.value)}
-            />
-
-            <input
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              placeholder="DNI"
-              value={nuevoDni}
-              onChange={(e) => setNuevoDni(e.target.value)}
-            />
-
-            <input
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              placeholder="Email"
-              value={nuevoEmail}
-              onChange={(e) => setNuevoEmail(e.target.value)}
-            />
-
-            <input
-              type="password"
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              placeholder="Contraseña"
-              value={nuevoPassword}
-              onChange={(e) => setNuevoPassword(e.target.value)}
-            />
-
-            <select
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              value={nuevaEscuela}
-              onChange={(e) => setNuevaEscuela(e.target.value)}
-            >
-              <option value="">Seleccionar escuela</option>
-              {escuelas.map((escuela) => (
-                <option key={escuela.id} value={escuela.codigo}>
-                  {escuela.nombre}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              value={nuevoAnio}
-              onChange={(e) => setNuevoAnio(e.target.value)}
-            >
-              <option value="">Seleccionar año</option>
-              <option value="1">1° año</option>
-              <option value="2">2° año</option>
-              <option value="3">3° año</option>
-              <option value="4">4° año</option>
-              <option value="5">5° año</option>
-              <option value="6">6° año</option>
-            </select>
-
-            <select
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              value={nuevoRol}
-              onChange={(e) => setNuevoRol(e.target.value)}
-            >
-              <option value="estudiante">estudiante</option>
-              <option value="centro">centro</option>
-              <option value="fes">fes</option>
-            </select>
-          </div>
-
-          <button
-            onClick={crearUsuario}
-            disabled={creandoUsuario}
-            className="mt-5 rounded-2xl bg-blue-600 px-6 py-4 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-          >
-            {creandoUsuario ? "Creando..." : "Crear usuario"}
-          </button>
-        </section>
-
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
-          <div className="flex items-center justify-between gap-4">
-            <div>
-              <h2 className="text-2xl font-bold text-slate-900">Gestionar estudiantes</h2>
-              <p className="mt-2 text-slate-600">
-                Buscá estudiantes, cambiá roles y activalos o desactivalos.
-              </p>
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-3 md:grid-cols-3">
-            <input
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              placeholder="Buscar por nombre, DNI o email"
-              value={busquedaEstudiante}
-              onChange={(e) => setBusquedaEstudiante(e.target.value)}
-            />
-
-            <select
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              value={filtroRol}
-              onChange={(e) => setFiltroRol(e.target.value)}
-            >
-              <option value="todos">Todos los roles</option>
-              <option value="estudiante">estudiante</option>
-              <option value="centro">centro</option>
-              <option value="fes">fes</option>
-            </select>
-
-            <select
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              value={filtroActivo}
-              onChange={(e) => setFiltroActivo(e.target.value)}
-            >
-              <option value="todos">Todos los estados</option>
-              <option value="activos">Activos</option>
-              <option value="inactivos">Inactivos</option>
-            </select>
-          </div>
-
-          <div className="mt-5 space-y-3">
-            {estudiantesFiltrados.length === 0 ? (
-              <p className="text-slate-600">No hay estudiantes que coincidan con la búsqueda.</p>
-            ) : (
-              estudiantesFiltrados.map((estudiante) => (
-                <div
-                  key={estudiante.id}
-                  className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
-                >
-                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                    <div>
-                      <p className="font-semibold text-slate-900">{estudiante.nombre}</p>
-                      <p className="mt-1 text-sm text-slate-600">DNI: {estudiante.dni}</p>
-                      <p className="mt-1 text-sm text-slate-600">Email: {estudiante.email || "Sin email"}</p>
-                      <p className="mt-1 text-sm text-slate-600">
-                        Escuela: {mapaEscuelas[estudiante.escuela_codigo] || `Escuela ${estudiante.escuela_codigo}`}
-                      </p>
-                      <p className="mt-1 text-sm text-slate-600">
-                        Estado: {estudiante.activo ? "Activo" : "Inactivo"}
-                      </p>
-                    </div>
-
-                    <div className="grid gap-3 md:grid-cols-2 xl:w-[420px]">
-                      <select
-                        className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
-                        value={estudiante.rol || "estudiante"}
-                        onChange={(e) => cambiarRol(estudiante.id, e.target.value)}
-                      >
-                        <option value="estudiante">estudiante</option>
-                        <option value="centro">centro</option>
-                        <option value="fes">fes</option>
-                      </select>
-
-                      <button
-                        onClick={() => cambiarActivoUsuario(estudiante.id, estudiante.activo)}
-                        className={`rounded-2xl px-4 py-3 font-medium transition ${
-                          estudiante.activo
-                            ? "bg-red-50 text-red-700 hover:bg-red-100"
-                            : "bg-green-50 text-green-700 hover:bg-green-100"
-                        }`}
-                      >
-                        {estudiante.activo ? "Desactivar" : "Activar"}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))
-            )}
-          </div>
-        </section>
-
         <section className="grid gap-6 xl:grid-cols-2">
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">Gestionar promociones</h2>
-                <p className="mt-2 text-slate-600">
-                  Creá promociones nuevas y activalas o desactivalas.
-                </p>
-              </div>
+            <h2 className="text-2xl font-bold text-slate-900">Crear nuevo usuario</h2>
+
+            <div className="mt-5 grid gap-4 md:grid-cols-2">
+              <input
+                className="rounded-2xl border border-slate-200 px-4 py-3"
+                placeholder="Nombre"
+                value={nuevoNombre}
+                onChange={(e) => setNuevoNombre(e.target.value)}
+              />
+
+              <input
+                className="rounded-2xl border border-slate-200 px-4 py-3"
+                placeholder="DNI"
+                value={nuevoDni}
+                onChange={(e) => setNuevoDni(e.target.value)}
+              />
+
+              <input
+                className="rounded-2xl border border-slate-200 px-4 py-3"
+                placeholder="Email"
+                value={nuevoEmail}
+                onChange={(e) => setNuevoEmail(e.target.value)}
+              />
+
+              <input
+                type="password"
+                className="rounded-2xl border border-slate-200 px-4 py-3"
+                placeholder="Contraseña"
+                value={nuevoPassword}
+                onChange={(e) => setNuevoPassword(e.target.value)}
+              />
+
+              <select
+                className="rounded-2xl border border-slate-200 px-4 py-3"
+                value={nuevaEscuela}
+                onChange={(e) => setNuevaEscuela(e.target.value)}
+              >
+                <option value="">Seleccionar escuela</option>
+                {escuelas.map((escuela) => (
+                  <option key={escuela.id} value={escuela.codigo}>
+                    {escuela.nombre}
+                  </option>
+                ))}
+              </select>
+
+              <select
+                className="rounded-2xl border border-slate-200 px-4 py-3"
+                value={nuevoAnio}
+                onChange={(e) => setNuevoAnio(e.target.value)}
+              >
+                <option value="">Seleccionar año</option>
+                <option value="1">1° año</option>
+                <option value="2">2° año</option>
+                <option value="3">3° año</option>
+                <option value="4">4° año</option>
+                <option value="5">5° año</option>
+                <option value="6">6° año</option>
+              </select>
+
+              <select
+                className="rounded-2xl border border-slate-200 px-4 py-3 md:col-span-2"
+                value={nuevoRol}
+                onChange={(e) => setNuevoRol(e.target.value)}
+              >
+                <option value="estudiante">estudiante</option>
+                <option value="centro">centro</option>
+                <option value="fes">fes</option>
+              </select>
             </div>
+
+            <button
+              onClick={crearUsuario}
+              disabled={creandoUsuario}
+              className="mt-5 rounded-2xl bg-blue-600 px-6 py-4 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+            >
+              {creandoUsuario ? "Creando..." : "Crear usuario"}
+            </button>
+          </div>
+
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
+            <h2 className="text-2xl font-bold text-slate-900">Crear promoción</h2>
 
             <div className="mt-5 grid gap-3">
               <input
@@ -699,51 +589,148 @@ export default function AdminFesPage() {
                 {creandoPromo ? "Creando..." : "Crear promoción"}
               </button>
             </div>
+          </div>
+        </section>
 
-            <div className="mt-6 grid gap-3 md:grid-cols-2">
+        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+            <div>
+              <h2 className="text-2xl font-bold text-slate-900">Gestionar estudiantes</h2>
+              <p className="mt-2 text-slate-600">
+                Podés cambiar roles, desactivar o eliminar permanentemente.
+              </p>
+            </div>
+
+            <div className="grid gap-3 md:grid-cols-3 lg:w-[760px]">
               <input
                 className="rounded-2xl border border-slate-200 px-4 py-3"
-                placeholder="Buscar promoción"
-                value={busquedaPromocion}
-                onChange={(e) => setBusquedaPromocion(e.target.value)}
+                placeholder="Buscar por nombre, DNI o email"
+                value={busquedaEstudiante}
+                onChange={(e) => setBusquedaEstudiante(e.target.value)}
               />
 
               <select
                 className="rounded-2xl border border-slate-200 px-4 py-3"
-                value={filtroPromocionEstado}
-                onChange={(e) => setFiltroPromocionEstado(e.target.value)}
+                value={filtroRol}
+                onChange={(e) => setFiltroRol(e.target.value)}
               >
-                <option value="todas">Todas</option>
-                <option value="activas">Activas</option>
-                <option value="inactivas">Inactivas</option>
+                <option value="todos">Todos los roles</option>
+                <option value="estudiante">estudiante</option>
+                <option value="centro">centro</option>
+                <option value="fes">fes</option>
               </select>
+
+              <select
+                className="rounded-2xl border border-slate-200 px-4 py-3"
+                value={filtroActivo}
+                onChange={(e) => setFiltroActivo(e.target.value)}
+              >
+                <option value="todos">Todos los estados</option>
+                <option value="activos">Activos</option>
+                <option value="inactivos">Inactivos</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="mt-5 space-y-3">
+            {estudiantesFiltrados.length === 0 ? (
+              <p className="text-slate-600">No hay estudiantes que coincidan con la búsqueda.</p>
+            ) : (
+              estudiantesFiltrados.map((estudiante) => (
+                <div
+                  key={estudiante.id}
+                  className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
+                >
+                  <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div>
+                      <p className="font-semibold text-slate-900">{estudiante.nombre}</p>
+                      <p className="mt-1 text-sm text-slate-600">DNI: {estudiante.dni}</p>
+                      <p className="mt-1 text-sm text-slate-600">Email: {estudiante.email || "Sin email"}</p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Escuela: {mapaEscuelas[estudiante.escuela_codigo] || `Escuela ${estudiante.escuela_codigo}`}
+                      </p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Estado: {estudiante.activo ? "Activo" : "Inactivo"}
+                      </p>
+                    </div>
+
+                    <div className="grid gap-3 md:grid-cols-3 xl:w-[620px]">
+                      <select
+                        className="rounded-2xl border border-slate-200 bg-white px-4 py-3"
+                        value={estudiante.rol || "estudiante"}
+                        onChange={(e) => cambiarRol(estudiante.id, e.target.value)}
+                      >
+                        <option value="estudiante">estudiante</option>
+                        <option value="centro">centro</option>
+                        <option value="fes">fes</option>
+                      </select>
+
+                      <button
+                        onClick={() => cambiarActivoUsuario(estudiante.id, estudiante.activo)}
+                        className={`rounded-2xl px-4 py-3 font-medium transition ${
+                          estudiante.activo
+                            ? "bg-red-50 text-red-700 hover:bg-red-100"
+                            : "bg-green-50 text-green-700 hover:bg-green-100"
+                        }`}
+                      >
+                        {estudiante.activo ? "Desactivar" : "Activar"}
+                      </button>
+
+                      <button
+                        onClick={() => eliminarUsuario(estudiante.id, estudiante.nombre)}
+                        className="rounded-2xl bg-red-600 px-4 py-3 font-medium text-white transition hover:bg-red-700"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </section>
+
+        <section className="grid gap-6 xl:grid-cols-2">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
+            <div className="flex items-center justify-between gap-4">
+              <h2 className="text-2xl font-bold text-slate-900">Gestionar promociones</h2>
+              <span className="text-sm text-slate-500">{promociones.length} total</span>
             </div>
 
             <div className="mt-5 space-y-3">
-              {promocionesFiltradas.length === 0 ? (
-                <p className="text-slate-600">No hay promociones.</p>
+              {promociones.length === 0 ? (
+                <p className="text-slate-600">No hay promociones cargadas.</p>
               ) : (
-                promocionesFiltradas.map((promo) => (
-                  <div
-                    key={promo.id}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
-                  >
+                promociones.map((promo) => (
+                  <div key={promo.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <p className="font-semibold text-slate-900">{promo.comercio}</p>
                     <p className="mt-1 text-sm text-slate-600">{promo.descuento}</p>
-                    {promo.descripcion && (
-                      <p className="mt-1 text-sm text-slate-600">{promo.descripcion}</p>
-                    )}
 
-                    <button
-                      onClick={() => cambiarEstadoPromocion(promo.id, promo.activo)}
-                      className={`mt-3 rounded-2xl px-4 py-2 text-sm font-medium transition ${
-                        promo.activo
-                          ? "bg-red-50 text-red-700 hover:bg-red-100"
-                          : "bg-green-50 text-green-700 hover:bg-green-100"
-                      }`}
-                    >
-                      {promo.activo ? "Desactivar" : "Activar"}
-                    </button>
+                    <div className="mt-3 flex flex-wrap gap-3">
+                      <button
+                        onClick={() => cambiarEstadoPromocion(promo.id, promo.activo)}
+                        className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
+                          promo.activo
+                            ? "bg-red-50 text-red-700 hover:bg-red-100"
+                            : "bg-green-50 text-green-700 hover:bg-green-100"
+                        }`}
+                      >
+                        {promo.activo ? "Desactivar" : "Activar"}
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          eliminarItem(
+                            "promocion",
+                            promo.id,
+                            `¿Seguro que querés eliminar permanentemente la promoción de ${promo.comercio}?`
+                          )
+                        }
+                        className="rounded-2xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -752,77 +739,51 @@ export default function AdminFesPage() {
 
           <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
             <div className="flex items-center justify-between gap-4">
-              <div>
-                <h2 className="text-2xl font-bold text-slate-900">Gestionar novedades</h2>
-                <p className="mt-2 text-slate-600">
-                  Filtrá publicaciones y creá novedades nuevas.
-                </p>
-              </div>
-
+              <h2 className="text-2xl font-bold text-slate-900">Gestionar novedades</h2>
               <Link
                 href="/publicar-novedad"
-                className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
+                className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
               >
                 Nueva novedad
               </Link>
             </div>
 
-            <div className="mt-5 grid gap-3 sm:grid-cols-3">
-              <input
-                className="rounded-2xl border border-slate-200 px-4 py-3 sm:col-span-3"
-                placeholder="Buscar por título o contenido"
-                value={busquedaNovedad}
-                onChange={(e) => setBusquedaNovedad(e.target.value)}
-              />
-
-              <select
-                className="rounded-2xl border border-slate-200 px-4 py-3"
-                value={filtroNovedadEstado}
-                onChange={(e) => setFiltroNovedadEstado(e.target.value)}
-              >
-                <option value="todas">Todas</option>
-                <option value="activas">Activas</option>
-                <option value="inactivas">Inactivas</option>
-              </select>
-
-              <select
-                className="rounded-2xl border border-slate-200 px-4 py-3 sm:col-span-2"
-                value={filtroNovedadEscuela}
-                onChange={(e) => setFiltroNovedadEscuela(e.target.value)}
-              >
-                <option value="todas">Todas las escuelas</option>
-                {escuelas.map((escuela) => (
-                  <option key={escuela.id} value={String(escuela.codigo)}>
-                    {escuela.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-
             <div className="mt-5 space-y-3">
-              {novedadesFiltradas.length === 0 ? (
-                <p className="text-slate-600">No hay novedades.</p>
+              {novedades.length === 0 ? (
+                <p className="text-slate-600">No hay novedades cargadas.</p>
               ) : (
-                novedadesFiltradas.map((novedad) => (
-                  <div
-                    key={novedad.id}
-                    className="rounded-2xl border border-slate-200 bg-slate-50 p-4"
-                  >
+                novedades.map((novedad) => (
+                  <div key={novedad.id} className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                     <p className="font-semibold text-slate-900">{novedad.titulo}</p>
                     <p className="mt-1 text-sm text-slate-600">
                       Escuela: {mapaEscuelas[novedad.escuela_codigo] || `Escuela ${novedad.escuela_codigo}`}
                     </p>
 
-                    <button
-                      onClick={() => cambiarEstadoNovedad(novedad.id, novedad.activo)}
-                      className={`mt-3 rounded-2xl px-4 py-2 text-sm font-medium transition ${
-                        novedad.activo
-                          ? "bg-red-50 text-red-700 hover:bg-red-100"
-                          : "bg-green-50 text-green-700 hover:bg-green-100"
-                      }`}
-                    >
-                      {novedad.activo ? "Desactivar" : "Activar"}
-                    </button>
+                    <div className="mt-3 flex flex-wrap gap-3">
+                      <button
+                        onClick={() => cambiarEstadoNovedad(novedad.id, novedad.activo)}
+                        className={`rounded-2xl px-4 py-2 text-sm font-medium transition ${
+                          novedad.activo
+                            ? "bg-red-50 text-red-700 hover:bg-red-100"
+                            : "bg-green-50 text-green-700 hover:bg-green-100"
+                        }`}
+                      >
+                        {novedad.activo ? "Desactivar" : "Activar"}
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          eliminarItem(
+                            "novedad",
+                            novedad.id,
+                            `¿Seguro que querés eliminar permanentemente la novedad "${novedad.titulo}"?`
+                          )
+                        }
+                        className="rounded-2xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+                      >
+                        Eliminar
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -831,71 +792,57 @@ export default function AdminFesPage() {
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
             <div>
               <h2 className="text-2xl font-bold text-slate-900">Gestionar cuadernillos</h2>
               <p className="mt-2 text-slate-600">
-                Los miembros FES pueden ver todos los cuadernillos de todos los años y escuelas, filtrarlos y darlos de baja.
+                Filtrá por escuela y año. Podés desactivar, reactivar o eliminar permanentemente.
               </p>
             </div>
 
-            <Link
-              href="/publicar-cuadernillo"
-              className="rounded-2xl bg-blue-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-blue-700"
-            >
-              Nuevo cuadernillo
-            </Link>
-          </div>
+            <div className="grid gap-3 md:grid-cols-3 lg:w-[760px]">
+              <select
+                className="rounded-2xl border border-slate-200 px-4 py-3"
+                value={filtroCuadernilloEscuela}
+                onChange={(e) => setFiltroCuadernilloEscuela(e.target.value)}
+              >
+                <option value="todas">Todas las escuelas</option>
+                {escuelas.map((escuela) => (
+                  <option key={escuela.id} value={escuela.codigo}>
+                    {escuela.nombre}
+                  </option>
+                ))}
+              </select>
 
-          <div className="mt-5 grid gap-3 md:grid-cols-4">
-            <input
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              placeholder="Buscar por título o descripción"
-              value={busquedaCuadernillo}
-              onChange={(e) => setBusquedaCuadernillo(e.target.value)}
-            />
+              <select
+                className="rounded-2xl border border-slate-200 px-4 py-3"
+                value={filtroCuadernilloAnio}
+                onChange={(e) => setFiltroCuadernilloAnio(e.target.value)}
+              >
+                <option value="todos">Todos los años</option>
+                <option value="1">1° año</option>
+                <option value="2">2° año</option>
+                <option value="3">3° año</option>
+                <option value="4">4° año</option>
+                <option value="5">5° año</option>
+                <option value="6">6° año</option>
+              </select>
 
-            <select
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              value={filtroCuadernilloEscuela}
-              onChange={(e) => setFiltroCuadernilloEscuela(e.target.value)}
-            >
-              <option value="todas">Todas las escuelas</option>
-              {escuelas.map((escuela) => (
-                <option key={escuela.id} value={String(escuela.codigo)}>
-                  {escuela.nombre}
-                </option>
-              ))}
-            </select>
-
-            <select
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              value={filtroCuadernilloAnio}
-              onChange={(e) => setFiltroCuadernilloAnio(e.target.value)}
-            >
-              <option value="todos">Todos los años</option>
-              <option value="1">1° año</option>
-              <option value="2">2° año</option>
-              <option value="3">3° año</option>
-              <option value="4">4° año</option>
-              <option value="5">5° año</option>
-              <option value="6">6° año</option>
-            </select>
-
-            <select
-              className="rounded-2xl border border-slate-200 px-4 py-3"
-              value={filtroCuadernilloEstado}
-              onChange={(e) => setFiltroCuadernilloEstado(e.target.value)}
-            >
-              <option value="todos">Todos los estados</option>
-              <option value="activos">Activos</option>
-              <option value="inactivos">Inactivos</option>
-            </select>
+              <select
+                className="rounded-2xl border border-slate-200 px-4 py-3"
+                value={filtroCuadernilloEstado}
+                onChange={(e) => setFiltroCuadernilloEstado(e.target.value)}
+              >
+                <option value="todos">Todos los estados</option>
+                <option value="activos">Activos</option>
+                <option value="inactivos">Inactivos</option>
+              </select>
+            </div>
           </div>
 
           <div className="mt-5 space-y-3">
             {cuadernillosFiltrados.length === 0 ? (
-              <p className="text-slate-600">No hay cuadernillos que coincidan con la búsqueda.</p>
+              <p className="text-slate-600">No hay cuadernillos para ese filtro.</p>
             ) : (
               cuadernillosFiltrados.map((item) => (
                 <div
@@ -909,17 +856,17 @@ export default function AdminFesPage() {
                         Escuela: {mapaEscuelas[item.escuela_codigo] || `Escuela ${item.escuela_codigo}`}
                       </p>
                       <p className="mt-1 text-sm text-slate-600">Año: {item.anio}</p>
-                      {item.descripcion && (
-                        <p className="mt-1 text-sm text-slate-600">{item.descripcion}</p>
-                      )}
+                      <p className="mt-1 text-sm text-slate-600">
+                        Estado: {item.activo ? "Activo" : "Inactivo"}
+                      </p>
                     </div>
 
-                    <div className="flex flex-col gap-3 sm:flex-row">
+                    <div className="flex flex-wrap gap-3">
                       <a
                         href={item.link}
                         target="_blank"
                         rel="noreferrer"
-                        className="rounded-2xl bg-slate-900 px-4 py-3 text-center text-sm font-medium text-white hover:bg-slate-800 transition"
+                        className="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm font-medium text-slate-700 transition hover:bg-slate-100"
                       >
                         Ver archivo
                       </a>
@@ -932,7 +879,20 @@ export default function AdminFesPage() {
                             : "bg-green-50 text-green-700 hover:bg-green-100"
                         }`}
                       >
-                        {item.activo ? "Dar de baja" : "Reactivar"}
+                        {item.activo ? "Desactivar" : "Activar"}
+                      </button>
+
+                      <button
+                        onClick={() =>
+                          eliminarItem(
+                            "cuadernillo",
+                            item.id,
+                            `¿Seguro que querés eliminar permanentemente el cuadernillo "${item.titulo}"? También se borrará el archivo.`
+                          )
+                        }
+                        className="rounded-2xl bg-red-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-red-700"
+                      >
+                        Eliminar
                       </button>
                     </div>
                   </div>
