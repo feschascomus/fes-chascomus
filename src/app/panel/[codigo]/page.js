@@ -14,15 +14,13 @@ export default async function PanelPage({ params }) {
     redirect("/login")
   }
 
-  let usuario = null
-
-  const { data, error } = await supabase
+  const { data: usuario, error } = await supabase
     .from("estudiantes")
     .select("*")
     .eq("codigo", codigo)
     .maybeSingle()
 
-  if (error || !data) {
+  if (error || !usuario) {
     return (
       <main className="min-h-screen bg-slate-100 p-4 sm:p-6">
         <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow p-6">
@@ -35,17 +33,11 @@ export default async function PanelPage({ params }) {
     )
   }
 
-  usuario = data
-
   const esMismoUsuario =
     (usuario.auth_user_id && usuario.auth_user_id === user.id) ||
     (user.email && usuario.email === user.email)
 
-  if (!esMismoUsuario) {
-    redirect("/login")
-  }
-
-  if (usuario.activo === false) {
+  if (!esMismoUsuario || usuario.activo === false) {
     redirect("/login")
   }
 
@@ -120,6 +112,13 @@ export default async function PanelPage({ params }) {
                   className="block bg-slate-900 text-white rounded-2xl px-4 py-3 font-medium"
                 >
                   Inicio del panel
+                </Link>
+
+                <Link
+                  href="/"
+                  className="block bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium hover:bg-slate-100 transition"
+                >
+                  Ir al inicio
                 </Link>
 
                 <Link

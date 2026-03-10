@@ -13,6 +13,7 @@ export default function PublicarNovedadPage() {
   const [escuela, setEscuela] = useState(null)
   const [escuelas, setEscuelas] = useState([])
   const [escuelaSeleccionada, setEscuelaSeleccionada] = useState("")
+  const [publicacionGeneral, setPublicacionGeneral] = useState(false)
   const [titulo, setTitulo] = useState("")
   const [contenido, setContenido] = useState("")
   const [enlace, setEnlace] = useState("")
@@ -125,19 +126,59 @@ export default function PublicarNovedadPage() {
 
     if (!usuario) return
 
-    const codigoEscuelaFinal =
-      usuario.rol === "fes"
-        ? Number(escuelaSeleccionada)
-        : Number(usuario.escuela_codigo)
-
-    if (!codigoEscuelaFinal) {
-      alert("Seleccioná una escuela")
-      return
-    }
-
     setPublicando(true)
 
     try {
+      if (usuario.rol === "fes" && publicacionGeneral) {
+        const escuelasActivas = escuelas.filter((e) => e.activa === true)
+
+        if (escuelasActivas.length === 0) {
+          setPublicando(false)
+          alert("No hay escuelas activas para publicar")
+          return
+        }
+
+        let imagenUrl = null
+
+        if (imagen) {
+          imagenUrl = await subirImagen("general")
+        }
+
+        const filas = escuelasActivas.map((esc) => ({
+          titulo: titulo.trim(),
+          contenido: contenido.trim(),
+          escuela_codigo: Number(esc.codigo),
+          autor_codigo: usuario.codigo,
+          imagen_url: imagenUrl,
+          enlace: enlace.trim() || null,
+          activo: true,
+        }))
+
+        const { error } = await supabase.from("novedades").insert(filas)
+
+        setPublicando(false)
+
+        if (error) {
+          alert("Error al publicar: " + error.message)
+          return
+        }
+
+        alert("Publicación general creada correctamente para todas las escuelas")
+        router.push(`/panel/${usuario.codigo}`)
+        return
+      }
+
+      const codigoEscuelaFinal =
+        usuario.rol === "fes"
+          ? Number(escuelaSeleccionada)
+          : Number(usuario.escuela_codigo)
+
+      if (!codigoEscuelaFinal) {
+        setPublicando(false)
+        alert("Seleccioná una escuela")
+        return
+      }
+
       let imagenUrl = null
 
       if (imagen) {
@@ -154,8 +195,8 @@ export default function PublicarNovedadPage() {
             autor_codigo: usuario.codigo,
             imagen_url: imagenUrl,
             enlace: enlace.trim() || null,
-            activo: true
-          }
+            activo: true,
+          },
         ])
 
       setPublicando(false)
@@ -220,7 +261,7 @@ export default function PublicarNovedadPage() {
 
               <nav className="space-y-2 pt-2">
                 <Link
-                  href="/panel"
+                  href={`/panel/${usuario.codigo}`}
                   className="block bg-slate-900 text-white rounded-2xl px-4 py-3 font-medium"
                 >
                   Volver al panel
@@ -245,18 +286,33 @@ export default function PublicarNovedadPage() {
             </p>
 
             {usuario?.rol === "fes" && (
-              <select
-                className="border border-slate-200 p-3 mb-4 block w-full rounded-2xl"
-                value={escuelaSeleccionada}
-                onChange={(e) => setEscuelaSeleccionada(e.target.value)}
-              >
-                <option value="">Seleccionar escuela</option>
-                {escuelas.map((esc) => (
-                  <option key={esc.id} value={esc.codigo}>
-                    {esc.nombre}
-                  </option>
-                ))}
-              </select>
+              <div className="mb-4 space-y-4">
+                <label className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                  <input
+                    type="checkbox"
+                    checked={publicacionGeneral}
+                    onChange={(e) => setPublicacionGeneral(e.target.checked)}
+                  />
+                  <span className="text-sm font-medium text-slate-700">
+                    Publicación general para todas las escuelas
+                  </span>
+                </label>
+
+                {!publicacionGeneral && (
+                  <select
+                    className="border border-slate-200 p-3 block w-full rounded-2xl"
+                    value={escuelaSeleccionada}
+                    onChange={(e) => setEscuelaSeleccionada(e.target.value)}
+                  >
+                    <option value="">Seleccionar escuela</option>
+                    {escuelas.map((esc) => (
+                      <option key={esc.id} value={esc.codigo}>
+                        {esc.nombre}
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
             )}
 
             <input
