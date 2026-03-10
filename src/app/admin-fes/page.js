@@ -208,7 +208,7 @@ export default function AdminFesPage() {
 
   const eliminarUsuario = async (estudianteId, nombre) => {
     const confirmar = window.confirm(
-      `¿Seguro que querés eliminar permanentemente a ${nombre}? Esta acción borra la cuenta de acceso y no se puede deshacer.`
+      `¿Seguro que querés eliminar permanentemente a ${nombre}?`
     )
 
     if (!confirmar) return
@@ -347,6 +347,13 @@ export default function AdminFesPage() {
   const mapaEscuelas = {}
   escuelas.forEach((escuela) => {
     mapaEscuelas[escuela.codigo] = escuela.nombre
+  })
+
+  const mapaAutores = {}
+  estudiantes.forEach((estudiante) => {
+    if (estudiante.codigo) {
+      mapaAutores[estudiante.codigo] = estudiante.nombre
+    }
   })
 
   const estudiantesFiltrados = useMemo(() => {
@@ -796,7 +803,7 @@ export default function AdminFesPage() {
             <div>
               <h2 className="text-2xl font-bold text-slate-900">Gestionar cuadernillos</h2>
               <p className="mt-2 text-slate-600">
-                Filtrá por escuela y año. Podés desactivar, reactivar o eliminar permanentemente.
+                Filtrá por escuela y año. Ahora se muestra el nombre de la escuela y quién lo subió.
               </p>
             </div>
 
@@ -855,7 +862,10 @@ export default function AdminFesPage() {
                       <p className="mt-1 text-sm text-slate-600">
                         Escuela: {mapaEscuelas[item.escuela_codigo] || `Escuela ${item.escuela_codigo}`}
                       </p>
-                      <p className="mt-1 text-sm text-slate-600">Año: {item.anio}</p>
+                      <p className="mt-1 text-sm text-slate-600">Año: {item.anio}°</p>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Subido por: {mapaAutores[item.autor_codigo] || item.autor_codigo || "Sin dato"}
+                      </p>
                       <p className="mt-1 text-sm text-slate-600">
                         Estado: {item.activo ? "Activo" : "Inactivo"}
                       </p>
@@ -887,7 +897,7 @@ export default function AdminFesPage() {
                           eliminarItem(
                             "cuadernillo",
                             item.id,
-                            `¿Seguro que querés eliminar permanentemente el cuadernillo "${item.titulo}"? También se borrará el archivo.`
+                            `¿Seguro que querés eliminar permanentemente el cuadernillo "${item.titulo}"?`
                           )
                         }
                         className="rounded-2xl bg-red-600 px-4 py-3 text-sm font-medium text-white transition hover:bg-red-700"
