@@ -16,7 +16,7 @@ export default async function PanelRootPage() {
 
   const { data: porAuthId } = await supabase
     .from("estudiantes")
-    .select("codigo")
+    .select("codigo, activo")
     .eq("auth_user_id", user.id)
     .maybeSingle()
 
@@ -25,14 +25,14 @@ export default async function PanelRootPage() {
   } else if (user.email) {
     const { data: porEmail } = await supabase
       .from("estudiantes")
-      .select("codigo")
+      .select("codigo, activo")
       .eq("email", user.email)
       .maybeSingle()
 
     estudiante = porEmail
   }
 
-  if (!estudiante?.codigo) {
+  if (!estudiante?.codigo || estudiante.activo === false) {
     redirect("/login")
   }
 

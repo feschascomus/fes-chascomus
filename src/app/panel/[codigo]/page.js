@@ -23,8 +23,8 @@ export default async function PanelPage({ params }) {
   if (error || !usuario) {
     return (
       <main className="min-h-screen bg-slate-100 p-4 sm:p-6">
-        <div className="max-w-4xl mx-auto bg-white rounded-3xl shadow p-6">
-          <h1 className="text-3xl font-bold mb-4">Usuario no encontrado</h1>
+        <div className="mx-auto max-w-4xl rounded-3xl bg-white p-6 shadow">
+          <h1 className="mb-4 text-3xl font-bold">Usuario no encontrado</h1>
           <p className="text-slate-600">
             No existe un estudiante con ese código.
           </p>
@@ -41,110 +41,114 @@ export default async function PanelPage({ params }) {
     redirect("/login")
   }
 
-  const { data: escuelas } = await supabase
+  const { data: escuela } = await supabase
     .from("escuelas")
-    .select("*")
+    .select("nombre, codigo")
     .eq("codigo", usuario.escuela_codigo)
+    .maybeSingle()
 
-  const escuela = escuelas && escuelas.length > 0 ? escuelas[0] : null
-
-  const { data: cuadernillos, error: errorCuadernillos } = await supabase
+  let cuadernillosQuery = supabase
     .from("cuadernillos")
     .select("*")
-    .eq("escuela_codigo", usuario.escuela_codigo)
-    .eq("anio", String(usuario.anio))
     .eq("activo", true)
     .order("created_at", { ascending: false })
+
+  if (usuario.rol === "fes") {
+    cuadernillosQuery = cuadernillosQuery
+  } else {
+    cuadernillosQuery = cuadernillosQuery
+      .eq("escuela_codigo", usuario.escuela_codigo)
+      .eq("anio", String(usuario.anio))
+  }
+
+  const { data: cuadernillos, error: errorCuadernillos } =
+    await cuadernillosQuery
 
   const puedePublicar =
     usuario.rol === "centro" || usuario.rol === "fes"
 
   return (
     <main className="min-h-screen bg-slate-100 p-4 sm:p-6">
-      <div className="max-w-7xl mx-auto grid gap-6 lg:grid-cols-[280px_1fr]">
-        <aside className="lg:sticky lg:top-24 h-fit">
-          <div className="bg-white rounded-3xl shadow-xl border border-slate-200 overflow-hidden">
-            <div className="bg-blue-700 text-white p-6">
+      <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[280px_1fr]">
+        <aside className="h-fit lg:sticky lg:top-24">
+          <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl">
+            <div className="bg-blue-700 p-6 text-white">
               <p className="text-xs uppercase tracking-[0.25em] opacity-80">
                 FES Chascomús
               </p>
-              <h1 className="text-2xl font-bold mt-2">
-                Panel
-              </h1>
-              <p className="text-sm text-blue-100 mt-1">
-                {usuario.nombre}
-              </p>
+              <h1 className="mt-2 text-2xl font-bold">Panel</h1>
+              <p className="mt-1 text-sm text-blue-100">{usuario.nombre}</p>
             </div>
 
-            <div className="p-4 space-y-3">
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+            <div className="space-y-3 p-4">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs uppercase tracking-wide text-slate-500">
                   Rol
                 </p>
-                <p className="font-semibold text-slate-900 mt-1">
+                <p className="mt-1 font-semibold text-slate-900">
                   {usuario.rol}
                 </p>
               </div>
 
               {escuela && (
-                <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+                <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                   <p className="text-xs uppercase tracking-wide text-slate-500">
                     Escuela
                   </p>
-                  <p className="font-semibold text-slate-900 mt-1">
+                  <p className="mt-1 font-semibold text-slate-900">
                     {escuela.nombre}
                   </p>
                 </div>
               )}
 
-              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4">
                 <p className="text-xs uppercase tracking-wide text-slate-500">
                   Año que cursa
                 </p>
-                <p className="font-semibold text-slate-900 mt-1">
+                <p className="mt-1 font-semibold text-slate-900">
                   {usuario.anio}
                 </p>
               </div>
 
-              <nav className="pt-2 space-y-2">
+              <nav className="space-y-2 pt-2">
                 <Link
                   href={`/panel/${usuario.codigo}`}
-                  className="block bg-slate-900 text-white rounded-2xl px-4 py-3 font-medium"
+                  className="block rounded-2xl bg-slate-900 px-4 py-3 font-medium text-white"
                 >
                   Inicio del panel
                 </Link>
 
                 <Link
                   href="/"
-                  className="block bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium hover:bg-slate-100 transition"
+                  className="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium transition hover:bg-slate-100"
                 >
                   Ir al inicio
                 </Link>
 
                 <Link
                   href={`/carne/${usuario.codigo}`}
-                  className="block bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium hover:bg-slate-100 transition"
+                  className="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium transition hover:bg-slate-100"
                 >
                   Mi carné
                 </Link>
 
                 <Link
                   href={`/escuela/${usuario.escuela_codigo}?usuario=${usuario.codigo}`}
-                  className="block bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium hover:bg-slate-100 transition"
+                  className="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium transition hover:bg-slate-100"
                 >
                   Mi escuela
                 </Link>
 
                 <Link
                   href={`/promociones?usuario=${usuario.codigo}`}
-                  className="block bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium hover:bg-slate-100 transition"
+                  className="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium transition hover:bg-slate-100"
                 >
                   Promociones
                 </Link>
 
                 <Link
                   href={`/escuelas?usuario=${usuario.codigo}`}
-                  className="block bg-slate-50 border border-slate-200 rounded-2xl px-4 py-3 font-medium hover:bg-slate-100 transition"
+                  className="block rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 font-medium transition hover:bg-slate-100"
                 >
                   Escuelas
                 </Link>
@@ -153,14 +157,14 @@ export default async function PanelPage({ params }) {
                   <>
                     <Link
                       href="/publicar-novedad"
-                      className="block bg-yellow-50 border border-yellow-200 rounded-2xl px-4 py-3 font-medium hover:bg-yellow-100 transition"
+                      className="block rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 font-medium transition hover:bg-yellow-100"
                     >
                       Publicar novedad
                     </Link>
 
                     <Link
                       href="/publicar-cuadernillo"
-                      className="block bg-yellow-50 border border-yellow-200 rounded-2xl px-4 py-3 font-medium hover:bg-yellow-100 transition"
+                      className="block rounded-2xl border border-yellow-200 bg-yellow-50 px-4 py-3 font-medium transition hover:bg-yellow-100"
                     >
                       Publicar cuadernillo
                     </Link>
@@ -170,7 +174,7 @@ export default async function PanelPage({ params }) {
                 {usuario.rol === "fes" && (
                   <Link
                     href="/admin-fes"
-                    className="block bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 font-medium hover:bg-blue-100 transition"
+                    className="block rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 font-medium transition hover:bg-blue-100"
                   >
                     Administración FES
                   </Link>
@@ -181,36 +185,37 @@ export default async function PanelPage({ params }) {
         </aside>
 
         <section className="space-y-6">
-          <div className="bg-white rounded-3xl shadow-xl border border-slate-200 p-6 sm:p-8">
-            <p className="text-sm uppercase tracking-wide text-blue-600 font-semibold">
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
               Bienvenido/a
             </p>
 
-            <h2 className="text-3xl sm:text-4xl font-bold mt-2 text-slate-900">
+            <h2 className="mt-2 text-3xl font-bold text-slate-900 sm:text-4xl">
               {usuario.nombre}
             </h2>
 
-            <p className="text-slate-500 mt-3 max-w-2xl">
+            <p className="mt-3 max-w-2xl text-slate-500">
               Desde este panel podés acceder a tu carné, tu escuela,
               promociones y materiales.
+              {usuario.rol === "fes"
+                ? " Como usuario FES, también ves todos los cuadernillos cargados."
+                : ""}
             </p>
           </div>
 
-          <div className="bg-white rounded-3xl shadow-xl border border-slate-200 p-6 sm:p-8">
-            <h2 className="text-2xl font-bold mb-5 text-slate-900">
-              Mis cuadernillos
+          <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
+            <h2 className="mb-5 text-2xl font-bold text-slate-900">
+              {usuario.rol === "fes" ? "Todos los cuadernillos" : "Mis cuadernillos"}
             </h2>
 
             {errorCuadernillos ? (
-              <div className="bg-red-50 rounded-2xl border border-red-200 p-5">
-                <p className="text-red-600">
-                  Error al cargar cuadernillos.
-                </p>
+              <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
+                <p className="text-red-600">Error al cargar cuadernillos.</p>
               </div>
             ) : !cuadernillos || cuadernillos.length === 0 ? (
-              <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5">
+              <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
                 <p className="text-slate-600">
-                  No hay cuadernillos cargados para tu escuela y año.
+                  No hay cuadernillos cargados.
                 </p>
               </div>
             ) : (
@@ -221,10 +226,13 @@ export default async function PanelPage({ params }) {
                     href={item.link}
                     target="_blank"
                     rel="noreferrer"
-                    className="bg-slate-50 rounded-2xl p-5 border border-slate-200 block hover:shadow-md transition"
+                    className="block rounded-2xl border border-slate-200 bg-slate-50 p-5 transition hover:shadow-md"
                   >
-                    <p className="text-sm text-blue-600 font-semibold mb-1">
+                    <p className="mb-1 text-sm font-semibold text-blue-600">
                       {item.anio}° año
+                      {usuario.rol === "fes" && item.escuela_codigo
+                        ? ` · Escuela ${item.escuela_codigo}`
+                        : ""}
                     </p>
 
                     <h3 className="text-xl font-semibold text-slate-900">
@@ -232,9 +240,7 @@ export default async function PanelPage({ params }) {
                     </h3>
 
                     {item.descripcion && (
-                      <p className="text-slate-600 mt-2">
-                        {item.descripcion}
-                      </p>
+                      <p className="mt-2 text-slate-600">{item.descripcion}</p>
                     )}
                   </a>
                 ))}

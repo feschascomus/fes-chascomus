@@ -26,14 +26,14 @@ export default function Login() {
       password,
     })
 
-    setLoading(false)
-
     if (error) {
+      setLoading(false)
       alert(error.message)
       return
     }
 
-    router.push("/panel")
+    router.replace("/panel")
+    router.refresh()
   }
 
   return (

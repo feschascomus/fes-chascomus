@@ -9,85 +9,28 @@ import SignOutButton from "./SignOutButton"
 export default function Navbar() {
   const supabase = createClient()
 
+  const [logueado, setLogueado] = useState(false)
   const [cargando, setCargando] = useState(true)
-  const [perfil, setPerfil] = useState(null)
 
   useEffect(() => {
     let mounted = true
 
-    const cargarPerfil = async () => {
+    const cargarSesion = async () => {
       const {
-        data: { user },
-      } = await supabase.auth.getUser()
+        data: { session },
+      } = await supabase.auth.getSession()
 
-      if (!user) {
-        if (mounted) {
-          setPerfil(null)
-          setCargando(false)
-        }
-        return
-      }
-
-      let perfilEncontrado = null
-
-      const { data: porAuthId } = await supabase
-        .from("estudiantes")
-        .select("codigo, activo, nombre")
-        .eq("auth_user_id", user.id)
-        .maybeSingle()
-
-      if (porAuthId) {
-        perfilEncontrado = porAuthId
-      } else if (user.email) {
-        const { data: porEmail } = await supabase
-          .from("estudiantes")
-          .select("codigo, activo, nombre")
-          .eq("email", user.email)
-          .maybeSingle()
-
-        perfilEncontrado = porEmail
-      }
-
-      if (mounted) {
-        setPerfil(perfilEncontrado && perfilEncontrado.activo !== false ? perfilEncontrado : null)
-        setCargando(false)
-      }
+      if (!mounted) return
+      setLogueado(!!session?.user)
+      setCargando(false)
     }
 
-    cargarPerfil()
+    cargarSesion()
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const user = session?.user
-
-      if (!user) {
-        setPerfil(null)
-        setCargando(false)
-        return
-      }
-
-      let perfilEncontrado = null
-
-      const { data: porAuthId } = await supabase
-        .from("estudiantes")
-        .select("codigo, activo, nombre")
-        .eq("auth_user_id", user.id)
-        .maybeSingle()
-
-      if (porAuthId) {
-        perfilEncontrado = porAuthId
-      } else if (user.email) {
-        const { data: porEmail } = await supabase
-          .from("estudiantes")
-          .select("codigo, activo, nombre")
-          .eq("email", user.email)
-          .maybeSingle()
-
-        perfilEncontrado = porEmail
-      }
-
-      setPerfil(perfilEncontrado && perfilEncontrado.activo !== false ? perfilEncontrado : null)
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      setLogueado(!!session?.user)
       setCargando(false)
     })
 
@@ -97,12 +40,10 @@ export default function Navbar() {
     }
   }, [supabase])
 
-  const logueado = !cargando && !!perfil
-
   return (
     <header className="sticky top-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-        <Link href="/" className="flex min-w-0 items-center gap-3">
+        <Link href={logueado ? "/panel" : "/"} className="flex min-w-0 items-center gap-3">
           <div className="relative h-10 w-10 shrink-0 overflow-hidden rounded-full border border-slate-200 bg-white">
             <Image
               src="/fes-logo.png"
@@ -124,23 +65,23 @@ export default function Navbar() {
 
         <nav className="flex items-center gap-2 sm:gap-3">
           <Link
-            href={logueado ? `/escuelas?usuario=${perfil.codigo}` : "/escuelas"}
+            href="/escuelas"
             className="hidden rounded-2xl px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 md:inline-flex"
           >
             Escuelas
           </Link>
 
           <Link
-            href={logueado ? `/promociones?usuario=${perfil.codigo}` : "/promociones"}
+            href="/promociones"
             className="hidden rounded-2xl px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 md:inline-flex"
           >
             Promociones
           </Link>
 
-          {logueado ? (
+          {!cargando && logueado ? (
             <>
               <Link
-                href={`/panel/${perfil.codigo}`}
+                href="/panel"
                 className="rounded-2xl bg-slate-100 px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-200 sm:px-4"
               >
                 Mi panel
