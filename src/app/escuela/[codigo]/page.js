@@ -1,16 +1,142 @@
+"use client"
+
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/server"
+import { useEffect, useState } from "react"
+import { createClient } from "@/lib/supabase/client"
 
-export default async function EscuelaPage({ params, searchParams }) {
-  const { codigo } = await params
-  const resolvedSearchParams = await searchParams
-  const supabase = await createClient()
+export default function EscuelaPage({ params }) {
+  const supabase = createClient()
 
-  const { data: escuela } = await supabase
-    .from("escuelas")
-    .select("*")
-    .eq("codigo", codigo)
-    .maybeSingle()
+  const [codigo, setCodigo] = useState("")
+  const [escuela, setEscuela] = useState(null)
+  const [perfil, setPerfil] = useState(null)
+  const [novedades, setNovedades] = useState([])
+  const [cuadernillos, setCuadernillos] = useState([])
+  const [cargando, setCargando] = useState(true)
+
+  useEffect(() => {
+    const init = async () => {
+      const resolvedParams = await params
+      const codigoEscuela = String(resolvedParams.codigo)
+      setCodigo(codigoEscuela)
+
+      const {
+        data: { user },
+      } = await supabase.auth.getUser()
+
+      let perfilEncontrado = null
+
+      if (user) {
+        const { data: porAuthId } = await supabase
+          .from("estudiantes")
+          .select("*")
+          .eq("auth_user_id", user.id)
+          .maybeSingle()
+
+        if (porAuthId) {
+          perfilEncontrado = porAuthId
+        } else if (user.email) {
+          const { data: porEmail } = await supabase
+            .from("estudiantes")
+            .select("*")
+            .eq("email", user.email)
+            .maybeSingle()
+
+          perfilEncontrado = porEmail
+        }
+      }
+
+      setPerfil(perfilEncontrado)
+
+      const { data: escuelaData } = await supabase
+        .from("escuelas")
+        .select("*")
+        .eq("codigo", codigoEscuela)
+        .maybeSingle()
+
+      setEscuela(escuelaData || null)
+
+      const { data: novedadesData } = await supabase
+        .from("novedades")
+        .select("*")
+        .eq("escuela_codigo", codigoEscuela)
+        .eq("activo", true)
+        .order("created_at", { ascending: false })
+
+      setNovedades(novedadesData || [])
+
+      const mismoColegio =
+        perfilEncontrado &&
+        String(perfilEncontrado.escuela_codigo) === String(codigoEscuela) &&
+        perfilEncontrado.activo !== false
+
+      if (mismoColegio) {
+        const { data: cuadernillosData } = await supabase
+          .from("cuadernillos")
+          .select("*")
+          .eq("escuela_codigo", codigoEscuela)
+          .eq("anio", String(perfilEncontrado.anio))
+          .eq("activo", true)
+          .order("created_at", { ascending: false })
+
+        setCuadernillos(cuadernillosData || [])
+      } else {
+        setCuadernillos([])
+      }
+
+      setCargando(false)
+    }
+
+    init()
+  }, [params, supabase])
+
+  const puedeGestionar =
+    perfil &&
+    perfil.activo !== false &&
+    (
+      perfil.rol === "fes" ||
+      (perfil.rol === "centro" && String(perfil.escuela_codigo) === String(codigo))
+    )
+
+  const borrarItem = async (tipo, id, texto) => {
+    const confirmar = window.confirm(texto)
+    if (!confirmar) return
+
+    const res = await fetch("/api/admin/delete-item", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ tipo, id }),
+    })
+
+    const data = await res.json()
+
+    if (!res.ok) {
+      alert(data.error || "No se pudo eliminar")
+      return
+    }
+
+    if (tipo === "novedad") {
+      setNovedades((prev) => prev.filter((item) => item.id !== id))
+    }
+
+    if (tipo === "cuadernillo") {
+      setCuadernillos((prev) => prev.filter((item) => item.id !== id))
+    }
+
+    alert("Eliminado permanentemente")
+  }
+
+  if (cargando) {
+    return (
+      <main className="min-h-screen bg-slate-100 p-6 flex items-center justify-center">
+        <div className="bg-white rounded-3xl shadow-lg p-8 text-center">
+          Cargando...
+        </div>
+      </main>
+    )
+  }
 
   if (!escuela) {
     return (
@@ -22,56 +148,10 @@ export default async function EscuelaPage({ params, searchParams }) {
     )
   }
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  let perfil = null
-
-  if (user) {
-    const { data: porAuthId } = await supabase
-      .from("estudiantes")
-      .select("*")
-      .eq("auth_user_id", user.id)
-      .maybeSingle()
-
-    if (porAuthId) {
-      perfil = porAuthId
-    } else if (user.email) {
-      const { data: porEmail } = await supabase
-        .from("estudiantes")
-        .select("*")
-        .eq("email", user.email)
-        .maybeSingle()
-
-      perfil = porEmail
-    }
-  }
-
-  const { data: novedades } = await supabase
-    .from("novedades")
-    .select("*")
-    .eq("escuela_codigo", codigo)
-    .eq("activo", true)
-    .order("created_at", { ascending: false })
-
-  let cuadernillos = []
   const mismoColegio =
     perfil &&
     String(perfil.escuela_codigo) === String(codigo) &&
     perfil.activo !== false
-
-  if (mismoColegio) {
-    const { data: cuadernillosData } = await supabase
-      .from("cuadernillos")
-      .select("*")
-      .eq("escuela_codigo", codigo)
-      .eq("anio", String(perfil.anio))
-      .eq("activo", true)
-      .order("created_at", { ascending: false })
-
-    cuadernillos = cuadernillosData || []
-  }
 
   return (
     <main className="min-h-screen bg-slate-100 p-4 sm:p-6">
@@ -114,12 +194,12 @@ export default async function EscuelaPage({ params, searchParams }) {
               Novedades
             </h2>
             <span className="text-sm text-slate-500">
-              {novedades?.length || 0} publicaciones
+              {novedades.length} publicaciones
             </span>
           </div>
 
           <div className="space-y-6">
-            {!novedades || novedades.length === 0 ? (
+            {novedades.length === 0 ? (
               <div className="bg-slate-50 rounded-2xl border border-slate-200 p-5">
                 <p className="text-slate-600">
                   No hay novedades publicadas todavía.
@@ -132,9 +212,26 @@ export default async function EscuelaPage({ params, searchParams }) {
                   className="bg-slate-50 rounded-3xl border border-slate-200 overflow-hidden"
                 >
                   <div className="p-6">
-                    <h3 className="text-2xl font-bold text-slate-900">
-                      {novedad.titulo}
-                    </h3>
+                    <div className="flex items-start justify-between gap-4">
+                      <h3 className="text-2xl font-bold text-slate-900">
+                        {novedad.titulo}
+                      </h3>
+
+                      {puedeGestionar && (
+                        <button
+                          onClick={() =>
+                            borrarItem(
+                              "novedad",
+                              novedad.id,
+                              `¿Seguro que querés eliminar permanentemente la novedad "${novedad.titulo}"?`
+                            )
+                          }
+                          className="rounded-2xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+                        >
+                          Eliminar
+                        </button>
+                      )}
+                    </div>
 
                     <p className="text-slate-600 mt-3 whitespace-pre-line">
                       {novedad.contenido}
@@ -203,27 +300,54 @@ export default async function EscuelaPage({ params, searchParams }) {
           ) : (
             <div className="grid gap-4">
               {cuadernillos.map((item) => (
-                <a
+                <div
                   key={item.id}
-                  href={item.link}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="bg-slate-50 rounded-2xl p-5 border border-slate-200 block hover:shadow-md transition"
+                  className="bg-slate-50 rounded-2xl p-5 border border-slate-200"
                 >
-                  <p className="text-sm text-blue-600 font-semibold mb-1">
-                    {item.anio}° año
-                  </p>
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm text-blue-600 font-semibold mb-1">
+                        {item.anio}° año
+                      </p>
 
-                  <h3 className="text-xl font-semibold text-slate-900">
-                    {item.titulo}
-                  </h3>
+                      <h3 className="text-xl font-semibold text-slate-900">
+                        {item.titulo}
+                      </h3>
 
-                  {item.descripcion && (
-                    <p className="text-slate-600 mt-2">
-                      {item.descripcion}
-                    </p>
-                  )}
-                </a>
+                      {item.descripcion && (
+                        <p className="text-slate-600 mt-2">
+                          {item.descripcion}
+                        </p>
+                      )}
+                    </div>
+
+                    {puedeGestionar && (
+                      <button
+                        onClick={() =>
+                          borrarItem(
+                            "cuadernillo",
+                            item.id,
+                            `¿Seguro que querés eliminar permanentemente el cuadernillo "${item.titulo}"?`
+                          )
+                        }
+                        className="rounded-2xl bg-red-600 px-4 py-2 text-sm font-medium text-white transition hover:bg-red-700"
+                      >
+                        Eliminar
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="mt-4">
+                    <a
+                      href={item.link}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="inline-block bg-blue-600 text-white px-5 py-3 rounded-xl font-semibold hover:bg-blue-700 transition"
+                    >
+                      Abrir cuadernillo
+                    </a>
+                  </div>
+                </div>
               ))}
             </div>
           )}

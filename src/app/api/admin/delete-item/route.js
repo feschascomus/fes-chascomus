@@ -50,7 +50,7 @@ export async function POST(req) {
       perfil = porEmail
     }
 
-    if (!perfil || perfil.rol !== "fes") {
+    if (!perfil || perfil.activo === false) {
       return NextResponse.json({ error: "No autorizado" }, { status: 403 })
     }
 
@@ -67,6 +67,10 @@ export async function POST(req) {
     )
 
     if (tipo === "promocion") {
+      if (perfil.rol !== "fes") {
+        return NextResponse.json({ error: "No autorizado" }, { status: 403 })
+      }
+
       const { error } = await adminSupabase
         .from("promociones")
         .delete()
@@ -88,6 +92,15 @@ export async function POST(req) {
 
       if (fetchError || !novedad) {
         return NextResponse.json({ error: "Novedad no encontrada" }, { status: 404 })
+      }
+
+      const puedeBorrar =
+        perfil.rol === "fes" ||
+        (perfil.rol === "centro" &&
+          String(perfil.escuela_codigo) === String(novedad.escuela_codigo))
+
+      if (!puedeBorrar) {
+        return NextResponse.json({ error: "No autorizado" }, { status: 403 })
       }
 
       const imagePath = getStoragePathFromPublicUrl(novedad.imagen_url, "novedades")
@@ -117,6 +130,15 @@ export async function POST(req) {
 
       if (fetchError || !cuadernillo) {
         return NextResponse.json({ error: "Cuadernillo no encontrado" }, { status: 404 })
+      }
+
+      const puedeBorrar =
+        perfil.rol === "fes" ||
+        (perfil.rol === "centro" &&
+          String(perfil.escuela_codigo) === String(cuadernillo.escuela_codigo))
+
+      if (!puedeBorrar) {
+        return NextResponse.json({ error: "No autorizado" }, { status: 403 })
       }
 
       const filePath = getStoragePathFromPublicUrl(cuadernillo.link, "cuadernillos")
