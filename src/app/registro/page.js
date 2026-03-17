@@ -16,6 +16,7 @@ export default function RegistroPage() {
   const [escuelas, setEscuelas] = useState([])
   const [escuelaSeleccionada, setEscuelaSeleccionada] = useState("")
   const [anio, setAnio] = useState("")
+  const [codigoCentro, setCodigoCentro] = useState("")
   const [cargando, setCargando] = useState(true)
   const [registrando, setRegistrando] = useState(false)
 
@@ -35,7 +36,7 @@ export default function RegistroPage() {
   }
 
   const limpiarDni = (valor) => {
-    return valor.replace(/\D/g, "")
+    return valor.replace(/\D/g, "").slice(0, 8)
   }
 
   const limpiarEmail = (valor) => {
@@ -74,9 +75,10 @@ export default function RegistroPage() {
     const nombreFinal = normalizarNombre(nombre)
     const dniFinal = limpiarDni(dni)
     const emailFinal = limpiarEmail(email)
+    const codigoCentroFinal = codigoCentro.trim().toUpperCase()
 
-    if (!nombreFinal || !dniFinal || !emailFinal || !password || !escuelaSeleccionada || !anio) {
-      alert("Completá todos los campos")
+    if (!nombreFinal || !dniFinal || !emailFinal || !password || !anio) {
+      alert("Completá todos los campos obligatorios")
       return
     }
 
@@ -102,6 +104,11 @@ export default function RegistroPage() {
 
     if (password.length < 6) {
       alert("La contraseña debe tener al menos 6 caracteres")
+      return
+    }
+
+    if (!codigoCentroFinal && !escuelaSeleccionada) {
+      alert("Seleccioná una escuela o ingresá un código de centro")
       return
     }
 
@@ -131,6 +138,27 @@ export default function RegistroPage() {
       return
     }
 
+    let rolFinal = "estudiante"
+    let escuelaFinal = Number(escuelaSeleccionada)
+
+    if (codigoCentroFinal) {
+      const { data: codigoValido } = await supabase
+        .from("codigos_centro")
+        .select("*")
+        .eq("codigo", codigoCentroFinal)
+        .eq("activo", true)
+        .maybeSingle()
+
+      if (!codigoValido) {
+        setRegistrando(false)
+        alert("Código de centro inválido")
+        return
+      }
+
+      rolFinal = "centro"
+      escuelaFinal = Number(codigoValido.escuela_codigo)
+    }
+
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: emailFinal,
       password,
@@ -142,7 +170,7 @@ export default function RegistroPage() {
       return
     }
 
-    const codigo = generarCodigo(dniFinal, escuelaSeleccionada)
+    const codigo = generarCodigo(dniFinal, escuelaFinal)
 
     const { error: insertError } = await supabase
       .from("estudiantes")
@@ -151,10 +179,10 @@ export default function RegistroPage() {
           nombre: nombreFinal,
           dni: dniFinal,
           email: emailFinal,
-          escuela_codigo: Number(escuelaSeleccionada),
+          escuela_codigo: escuelaFinal,
           anio: String(anio),
           codigo,
-          rol: "estudiante",
+          rol: rolFinal,
           activo: true,
           auth_user_id: authData.user?.id || null,
         },
@@ -167,7 +195,12 @@ export default function RegistroPage() {
       return
     }
 
-    alert("Registro completado correctamente")
+    if (rolFinal === "centro") {
+      alert("Registro completado correctamente. Tu usuario fue habilitado como centro.")
+    } else {
+      alert("Registro completado correctamente")
+    }
+
     router.push("/login")
   }
 
@@ -211,9 +244,6 @@ export default function RegistroPage() {
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
               />
-              <p className="mt-2 text-xs text-slate-500">
-                Ingresá nombre y apellido completos.
-              </p>
             </div>
 
             <div>
@@ -227,11 +257,8 @@ export default function RegistroPage() {
                 className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
                 placeholder="8 números sin puntos"
                 value={dni}
-                onChange={(e) => setDni(limpiarDni(e.target.value).slice(0, 8))}
+                onChange={(e) => setDni(limpiarDni(e.target.value))}
               />
-              <p className="mt-2 text-xs text-slate-500">
-                Debe tener exactamente 8 números.
-              </p>
             </div>
 
             <div>
@@ -245,9 +272,6 @@ export default function RegistroPage() {
                 value={email}
                 onChange={(e) => setEmail(limpiarEmail(e.target.value))}
               />
-              <p className="mt-2 text-xs text-slate-500">
-                Se guarda en minúsculas y sin espacios.
-              </p>
             </div>
 
             <div>
@@ -279,6 +303,25 @@ export default function RegistroPage() {
                   </option>
                 ))}
               </select>
+              <p className="mt-2 text-xs text-slate-500">
+                Si ingresás un código de centro válido, la escuela se asigna automáticamente.
+              </p>
+            </div>
+
+            <div>
+              <label className="mb-2 block text-sm font-medium text-slate-700">
+                Código de centro (opcional)
+              </label>
+              <input
+                type="text"
+                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
+                placeholder="Ejemplo: INSTITUTOCORAZONDEMARIA-215-2026-FES"
+                value={codigoCentro}
+                onChange={(e) => setCodigoCentro(e.target.value.toUpperCase())}
+              />
+              <p className="mt-2 text-xs text-slate-500">
+                Solo usalo si vas a registrarte como centro de estudiantes.
+              </p>
             </div>
 
             <div>
