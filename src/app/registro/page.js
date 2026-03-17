@@ -62,6 +62,10 @@ export default function RegistroPage() {
     return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor)
   }
 
+  const dniValido = (valor) => {
+    return /^\d{8}$/.test(valor)
+  }
+
   const generarCodigo = (dniValor, escuelaCodigo) => {
     return `${dniValor}${escuelaCodigo}`
   }
@@ -81,8 +85,13 @@ export default function RegistroPage() {
       return
     }
 
-    if (dniFinal.length < 7 || dniFinal.length > 8) {
-      alert("Ingresá un DNI válido, sin puntos")
+    if (!dniValido(dniFinal)) {
+      alert("El DNI debe tener exactamente 8 números")
+      return
+    }
+
+    if (/^(\d)\1{7}$/.test(dniFinal)) {
+      alert("Ingresá un DNI válido")
       return
     }
 
@@ -214,13 +223,14 @@ export default function RegistroPage() {
               <input
                 type="text"
                 inputMode="numeric"
+                maxLength={8}
                 className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
-                placeholder="Solo números"
+                placeholder="8 números sin puntos"
                 value={dni}
-                onChange={(e) => setDni(limpiarDni(e.target.value))}
+                onChange={(e) => setDni(limpiarDni(e.target.value).slice(0, 8))}
               />
               <p className="mt-2 text-xs text-slate-500">
-                Se guarda sin puntos ni espacios.
+                Debe tener exactamente 8 números.
               </p>
             </div>
 
