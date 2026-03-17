@@ -1,25 +1,21 @@
 import { createServerClient } from "@supabase/ssr"
 import { NextResponse } from "next/server"
 
-export async function updateSession(request) {
-  let supabaseResponse = NextResponse.next({
-    request,
-  })
+export async function proxy(req) {
+  let res = NextResponse.next()
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
-          return request.cookies.getAll()
+          return req.cookies.getAll()
         },
         setAll(cookiesToSet) {
-          cookiesToSet.forEach(({ name, value }) => request.cookies.set(name, value))
-          supabaseResponse = NextResponse.next({ request })
-          cookiesToSet.forEach(({ name, value, options }) =>
-            supabaseResponse.cookies.set(name, value, options)
-          )
+          cookiesToSet.forEach(({ name, value, options }) => {
+            res.cookies.set(name, value, options)
+          })
         },
       },
     }
@@ -29,36 +25,49 @@ export async function updateSession(request) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  const pathname = request.nextUrl.pathname
+  const pathname = req.nextUrl.pathname
 
-  const protectedRoutes = [
+  const rutasPrivadas = [
     "/panel",
+    "/carne",
     "/admin-fes",
     "/publicar-novedad",
     "/publicar-cuadernillo",
   ]
 
-  const authRoutes = ["/login", "/registro"]
+  const rutasAuth = ["/login", "/registro"]
 
-  const isProtectedRoute = protectedRoutes.some((route) =>
-    pathname.startsWith(route)
+  const requiereLogin = rutasPrivadas.some((r) =>
+    pathname.startsWith(r)
   )
 
-  const isAuthRoute = authRoutes.some((route) =>
-    pathname.startsWith(route)
+  const esRutaAuth = rutasAuth.some((r) =>
+    pathname.startsWith(r)
   )
 
-  if (!user && isProtectedRoute) {
-    const url = request.nextUrl.clone()
+  if (requiereLogin && !user) {
+    const url = req.nextUrl.clone()
     url.pathname = "/login"
     return NextResponse.redirect(url)
   }
 
-  if (user && isAuthRoute) {
-    const url = request.nextUrl.clone()
+  if (esRutaAuth && user) {
+    const url = req.nextUrl.clone()
     url.pathname = "/panel"
     return NextResponse.redirect(url)
   }
 
-  return supabaseResponse
+  return res
+}
+
+export const config = {
+  matcher: [
+    "/panel/:path*",
+    "/carne/:path*",
+    "/admin-fes/:path*",
+    "/publicar-novedad/:path*",
+    "/publicar-cuadernillo/:path*",
+    "/login",
+    "/registro",
+  ],
 }

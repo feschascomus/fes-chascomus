@@ -1,11 +1,10 @@
 "use client"
 
-import Link from "next/link"
 import { useState } from "react"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 
-export default function Login() {
+export default function LoginPage() {
   const supabase = createClient()
   const router = useRouter()
 
@@ -13,92 +12,57 @@ export default function Login() {
   const [password, setPassword] = useState("")
   const [loading, setLoading] = useState(false)
 
-  const login = async () => {
+  const handleLogin = async () => {
     if (!email || !password) {
-      alert("Completá email y contraseña")
+      alert("Completá todos los campos")
       return
     }
 
     setLoading(true)
 
     const { error } = await supabase.auth.signInWithPassword({
-      email: email.trim(),
+      email,
       password,
     })
 
+    setLoading(false)
+
     if (error) {
-      setLoading(false)
       alert(error.message)
       return
     }
 
-    router.replace("/panel")
-    router.refresh()
+    router.push("/panel")
   }
 
   return (
-    <main className="px-4 py-8 sm:px-6 sm:py-12">
-      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-2">
-        <section className="rounded-3xl bg-gradient-to-br from-blue-700 to-blue-900 p-8 text-white shadow-xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-100">
-            Ingreso
-          </p>
+    <main className="min-h-screen flex items-center justify-center bg-slate-100 p-4">
+      <div className="bg-white p-6 rounded-2xl shadow-lg w-full max-w-md">
+        <h1 className="text-2xl font-bold mb-4">Ingresar</h1>
 
-          <h1 className="mt-4 text-4xl font-bold leading-tight sm:text-5xl">
-            Entrá a tu cuenta
-          </h1>
+        <input
+          type="email"
+          placeholder="Email"
+          className="border p-3 w-full mb-3 rounded"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+        />
 
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-blue-100 sm:text-lg">
-            Accedé a tu panel personal para ver tu carné, tus cuadernillos, tu escuela y tus beneficios.
-          </p>
-        </section>
+        <input
+          type="password"
+          placeholder="Contraseña"
+          className="border p-3 w-full mb-4 rounded"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+        />
 
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
-          <div className="space-y-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Email
-              </label>
-              <input
-                type="email"
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
-                placeholder="Ingresá tu email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Contraseña
-              </label>
-              <input
-                type="password"
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
-                placeholder="Ingresá tu contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-
-            <button
-              onClick={login}
-              disabled={loading}
-              className="mt-2 w-full rounded-2xl bg-blue-600 px-6 py-4 text-base font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-            >
-              {loading ? "Ingresando..." : "Ingresar"}
-            </button>
-
-            <p className="pt-2 text-center text-sm text-slate-600">
-              <Link
-                href="/recuperar"
-                className="font-medium text-blue-600 hover:underline"
-              >
-                Olvidé mi contraseña
-              </Link>
-            </p>
-          </div>
-        </section>
+        <button
+          onClick={handleLogin}
+          disabled={loading}
+          className="bg-blue-600 text-white w-full py-3 rounded font-semibold"
+        >
+          {loading ? "Ingresando..." : "Ingresar"}
+        </button>
       </div>
     </main>
   )
