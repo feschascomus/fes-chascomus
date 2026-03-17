@@ -1,261 +1,160 @@
 import Link from "next/link"
-import { supabase } from "@/lib/supabase"
+import { createClient } from "@/lib/supabase/server"
 
-export default async function Home() {
-  const { data: novedades } = await supabase
-    .from("novedades")
-    .select("*")
-    .eq("activo", true)
-    .order("created_at", { ascending: false })
-    .limit(3)
+export default async function HomePage() {
+  const supabase = await createClient()
 
-  const { data: escuelas } = await supabase
-    .from("escuelas")
-    .select("*")
-    .eq("activa", true)
-    .order("nombre", { ascending: true })
+  const {
+    data: { user },
+  } = await supabase.auth.getUser()
 
-  const { data: promociones } = await supabase
-    .from("promociones")
-    .select("*")
-    .eq("activo", true)
-    .order("created_at", { ascending: false })
-    .limit(3)
+  let perfil = null
 
-  const mapaEscuelas = {}
-  ;(escuelas || []).forEach((escuela) => {
-    mapaEscuelas[escuela.codigo] = escuela.nombre
-  })
+  if (user) {
+    const { data: porAuthId } = await supabase
+      .from("estudiantes")
+      .select("codigo, activo, nombre")
+      .eq("auth_user_id", user.id)
+      .maybeSingle()
+
+    if (porAuthId) {
+      perfil = porAuthId
+    } else if (user.email) {
+      const { data: porEmail } = await supabase
+        .from("estudiantes")
+        .select("codigo, activo, nombre")
+        .eq("email", user.email)
+        .maybeSingle()
+
+      perfil = porEmail
+    }
+  }
+
+  const logueado = !!perfil && perfil.activo !== false
+  const linkCarnet = logueado ? `/carne/${perfil.codigo}` : "/login"
+  const linkPanel = logueado ? `/panel/${perfil.codigo}` : "/login"
 
   return (
-    <main className="bg-slate-50">
-      {/* HERO */}
-      <section className="px-4 py-8 sm:px-6 sm:py-10">
-        <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="rounded-3xl bg-gradient-to-br from-blue-700 to-blue-900 p-6 text-white shadow-xl sm:p-10">
+    <main className="min-h-screen bg-slate-100">
+      <section className="px-4 py-10 sm:px-6 sm:py-14">
+        <div className="mx-auto max-w-7xl">
+          <div className="overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 to-blue-900 px-6 py-10 text-white shadow-xl sm:px-10 sm:py-14">
             <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-100">
               FES Chascomús
             </p>
 
-            <h1 className="mt-4 text-4xl font-bold leading-tight sm:text-5xl">
-              La plataforma digital de estudiantes secundarios de Chascomús
+            <h1 className="mt-4 max-w-3xl text-4xl font-bold leading-tight sm:text-5xl">
+              Plataforma oficial de la Federación de Estudiantes Secundarios
             </h1>
 
             <p className="mt-5 max-w-2xl text-base leading-relaxed text-blue-100 sm:text-lg">
-              Accedé a tu carné estudiantil, materiales por escuela, promociones,
-              novedades y herramientas para estudiantes, centros de estudiantes y FES.
+              Accedé a tu carné digital, promociones, novedades, cuadernillos y espacios de tu escuela desde un solo lugar.
             </p>
 
-            <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <Link
-                href="/login"
-                className="rounded-2xl bg-white px-6 py-4 text-center font-semibold text-blue-700 transition hover:bg-blue-50"
-              >
-                Ingresar
-              </Link>
+            <div className="mt-8 flex flex-wrap gap-3">
+              {logueado ? (
+                <>
+                  <Link
+                    href={linkPanel}
+                    className="rounded-2xl bg-white px-5 py-3 font-semibold text-blue-700 transition hover:bg-blue-50"
+                  >
+                    Ir a mi panel
+                  </Link>
 
-              <Link
-                href="/registro"
-                className="rounded-2xl border border-blue-400 bg-blue-800 px-6 py-4 text-center font-semibold text-white transition hover:bg-blue-950"
-              >
-                Crear cuenta
-              </Link>
-            </div>
-          </div>
+                  <Link
+                    href={linkCarnet}
+                    className="rounded-2xl border border-white/30 bg-white/10 px-5 py-3 font-semibold text-white transition hover:bg-white/20"
+                  >
+                    Ver mi carné
+                  </Link>
+                </>
+              ) : (
+                <>
+                  <Link
+                    href="/login"
+                    className="rounded-2xl bg-white px-5 py-3 font-semibold text-blue-700 transition hover:bg-blue-50"
+                  >
+                    Ingresar
+                  </Link>
 
-          <div className="grid gap-4">
-            <Link
-              href="/escuelas"
-              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl transition hover:shadow-2xl"
-            >
-              <h2 className="text-2xl font-bold text-slate-900">Escuelas</h2>
-              <p className="mt-2 text-slate-600">
-                Explorá las instituciones secundarias y sus espacios digitales.
-              </p>
-            </Link>
-
-            <Link
-              href="/promociones"
-              className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl transition hover:shadow-2xl"
-            >
-              <h2 className="text-2xl font-bold text-slate-900">Promociones</h2>
-              <p className="mt-2 text-slate-600">
-                Beneficios y descuentos disponibles con tu carné estudiantil.
-              </p>
-            </Link>
-
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
-              <h2 className="text-2xl font-bold text-slate-900">Carné digital</h2>
-              <p className="mt-2 text-slate-600">
-                Código único, validación QR y acceso rápido desde cualquier dispositivo.
-              </p>
+                  <Link
+                    href="/registro"
+                    className="rounded-2xl border border-white/30 bg-white/10 px-5 py-3 font-semibold text-white transition hover:bg-white/20"
+                  >
+                    Registrarme
+                  </Link>
+                </>
+              )}
             </div>
           </div>
         </div>
       </section>
 
-      {/* ÚLTIMAS NOVEDADES */}
-      <section className="px-4 pb-8 sm:px-6">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-6 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-600">
-                Novedades
-              </p>
-              <h2 className="mt-2 text-3xl font-bold text-slate-900">
-                Últimas publicaciones
-              </h2>
-            </div>
+      <section className="px-4 pb-10 sm:px-6 sm:pb-14">
+        <div className="mx-auto grid max-w-7xl gap-6 md:grid-cols-2 xl:grid-cols-4">
+          <Link
+            href={linkCarnet}
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl transition hover:-translate-y-0.5 hover:shadow-2xl"
+          >
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+              Acceso rápido
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900">
+              Carnet digital
+            </h2>
+            <p className="mt-3 text-slate-600">
+              {logueado
+                ? "Abrí tu carné estudiantil y mostralo cuando lo necesites."
+                : "Ingresá o registrate para acceder a tu carné estudiantil."}
+            </p>
+          </Link>
 
-            <Link
-              href="/escuelas"
-              className="hidden rounded-2xl bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-200 sm:inline-flex"
-            >
-              Ver escuelas
-            </Link>
-          </div>
+          <Link
+            href="/escuelas"
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl transition hover:-translate-y-0.5 hover:shadow-2xl"
+          >
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+              Información
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900">
+              Escuelas
+            </h2>
+            <p className="mt-3 text-slate-600">
+              Conocé los espacios, novedades y materiales de cada institución.
+            </p>
+          </Link>
 
-          {!novedades || novedades.length === 0 ? (
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
-              <p className="text-slate-600">
-                Todavía no hay novedades publicadas.
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-6 lg:grid-cols-3">
-              {novedades.map((item) => (
-                <article
-                  key={item.id}
-                  className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-xl"
-                >
-                  {item.imagen_url && (
-                    <img
-                      src={item.imagen_url}
-                      alt={item.titulo}
-                      className="h-56 w-full object-cover"
-                    />
-                  )}
+          <Link
+            href="/promociones"
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl transition hover:-translate-y-0.5 hover:shadow-2xl"
+          >
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+              Beneficios
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900">
+              Promociones
+            </h2>
+            <p className="mt-3 text-slate-600">
+              Descubrí descuentos, beneficios y oportunidades para estudiantes.
+            </p>
+          </Link>
 
-                  <div className="p-6">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-blue-600">
-                      {mapaEscuelas[item.escuela_codigo] || `Escuela ${item.escuela_codigo}`}
-                    </p>
-
-                    <h3 className="mt-3 text-2xl font-bold text-slate-900">
-                      {item.titulo}
-                    </h3>
-
-                    <p className="mt-3 line-clamp-4 whitespace-pre-line text-slate-600">
-                      {item.contenido}
-                    </p>
-
-                    <div className="mt-5 flex items-center justify-between gap-3">
-                      <Link
-                        href={`/escuela/${item.escuela_codigo}`}
-                        className="rounded-2xl bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700"
-                      >
-                        Ver publicación
-                      </Link>
-
-                      {item.created_at && (
-                        <span className="text-xs text-slate-400">
-                          {new Date(item.created_at).toLocaleDateString("es-AR")}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                </article>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* PROMOCIONES DESTACADAS */}
-      <section className="px-4 pb-8 sm:px-6">
-        <div className="mx-auto max-w-7xl">
-          <div className="mb-6 flex items-end justify-between gap-4">
-            <div>
-              <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-600">
-                Beneficios
-              </p>
-              <h2 className="mt-2 text-3xl font-bold text-slate-900">
-                Promociones destacadas
-              </h2>
-            </div>
-
-            <Link
-              href="/promociones"
-              className="hidden rounded-2xl bg-slate-100 px-4 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-200 sm:inline-flex"
-            >
-              Ver todas
-            </Link>
-          </div>
-
-          {!promociones || promociones.length === 0 ? (
-            <div className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl">
-              <p className="text-slate-600">
-                Todavía no hay promociones cargadas.
-              </p>
-            </div>
-          ) : (
-            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-              {promociones.map((promo) => (
-                <div
-                  key={promo.id}
-                  className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl"
-                >
-                  <h3 className="text-xl font-bold text-slate-900">
-                    {promo.comercio}
-                  </h3>
-
-                  <p className="mt-3 text-lg font-semibold text-blue-600">
-                    {promo.descuento}
-                  </p>
-
-                  <p className="mt-3 text-slate-600">
-                    {promo.descripcion}
-                  </p>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* ROLES */}
-      <section className="px-4 pb-10 sm:px-6">
-        <div className="mx-auto max-w-7xl rounded-3xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-600">
-            Comunidad
-          </p>
-
-          <h2 className="mt-2 text-3xl font-bold text-slate-900">
-            Una plataforma para toda la red estudiantil
-          </h2>
-
-          <div className="mt-6 grid gap-6 md:grid-cols-3">
-            <div>
-              <h3 className="text-xl font-bold text-slate-900">Estudiantes</h3>
-              <p className="mt-2 text-slate-600">
-                Acceso a su carné, materiales por año, promociones y novedades escolares.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="text-xl font-bold text-slate-900">Centros de estudiantes</h3>
-              <p className="mt-2 text-slate-600">
-                Publicación de novedades, actividades y materiales dentro de cada escuela.
-              </p>
-            </div>
-
-            <div>
-              <h3 className="text-xl font-bold text-slate-900">FES</h3>
-              <p className="mt-2 text-slate-600">
-                Gestión general de contenidos, articulación institucional y comunicación estudiantil.
-              </p>
-            </div>
-          </div>
+          <Link
+            href={logueado ? linkPanel : "/registro"}
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl transition hover:-translate-y-0.5 hover:shadow-2xl"
+          >
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+              Plataforma
+            </p>
+            <h2 className="mt-2 text-2xl font-bold text-slate-900">
+              Mi cuenta
+            </h2>
+            <p className="mt-3 text-slate-600">
+              {logueado
+                ? "Entrá a tu panel personal para gestionar tu cuenta."
+                : "Ingresá o registrate para empezar a usar la plataforma."}
+            </p>
+          </Link>
         </div>
       </section>
     </main>
