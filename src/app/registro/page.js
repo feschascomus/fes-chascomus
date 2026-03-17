@@ -1,10 +1,11 @@
 "use client"
 
+import Link from "next/link"
 import { useEffect, useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
+import { createClient } from "@/lib/supabase/client"
 
-export default function Registro() {
+export default function RegistroPage() {
   const supabase = createClient()
   const router = useRouter()
 
@@ -12,86 +13,168 @@ export default function Registro() {
   const [dni, setDni] = useState("")
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
-  const [escuela, setEscuela] = useState("")
-  const [anio, setAnio] = useState("")
   const [escuelas, setEscuelas] = useState([])
-  const [loading, setLoading] = useState(false)
+  const [escuelaSeleccionada, setEscuelaSeleccionada] = useState("")
+  const [anio, setAnio] = useState("")
+  const [cargando, setCargando] = useState(true)
+  const [registrando, setRegistrando] = useState(false)
 
   useEffect(() => {
     cargarEscuelas()
   }, [])
 
   const cargarEscuelas = async () => {
-    const { data, error } = await supabase
+    const { data } = await supabase
       .from("escuelas")
       .select("*")
       .eq("activa", true)
       .order("nombre", { ascending: true })
 
-    if (!error && data) {
-      setEscuelas(data)
-    }
+    setEscuelas(data || [])
+    setCargando(false)
+  }
+
+  const limpiarDni = (valor) => {
+    return valor.replace(/\D/g, "")
+  }
+
+  const limpiarEmail = (valor) => {
+    return valor.trim().toLowerCase()
+  }
+
+  const normalizarNombre = (valor) => {
+    const limpio = valor.trim().replace(/\s+/g, " ")
+
+    return limpio
+      .split(" ")
+      .filter(Boolean)
+      .map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1).toLowerCase())
+      .join(" ")
+  }
+
+  const tieneNombreYApellido = (valor) => {
+    const limpio = valor.trim().replace(/\s+/g, " ")
+    const partes = limpio.split(" ").filter(Boolean)
+    return partes.length >= 2
+  }
+
+  const emailValido = (valor) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor)
+  }
+
+  const generarCodigo = (dniValor, escuelaCodigo) => {
+    return `${dniValor}${escuelaCodigo}`
   }
 
   const registrar = async () => {
-    if (!nombre || !dni || !email || !password || !escuela || !anio) {
+    const nombreFinal = normalizarNombre(nombre)
+    const dniFinal = limpiarDni(dni)
+    const emailFinal = limpiarEmail(email)
+
+    if (!nombreFinal || !dniFinal || !emailFinal || !password || !escuelaSeleccionada || !anio) {
       alert("Completá todos los campos")
       return
     }
 
-    const anioNumero = Number(anio)
-
-    if (anioNumero < 1 || anioNumero > 6) {
-      alert("El año debe ser entre 1 y 6")
+    if (!tieneNombreYApellido(nombreFinal)) {
+      alert("Ingresá nombre y apellido")
       return
     }
 
-    setLoading(true)
+    if (dniFinal.length < 7 || dniFinal.length > 8) {
+      alert("Ingresá un DNI válido, sin puntos")
+      return
+    }
 
-    const codigo = `${String(dni).trim()}${String(escuela).trim()}`
+    if (!emailValido(emailFinal)) {
+      alert("Ingresá un email válido")
+      return
+    }
+
+    if (password.length < 6) {
+      alert("La contraseña debe tener al menos 6 caracteres")
+      return
+    }
+
+    setRegistrando(true)
+
+    const { data: dniExistente } = await supabase
+      .from("estudiantes")
+      .select("id")
+      .eq("dni", dniFinal)
+      .maybeSingle()
+
+    if (dniExistente) {
+      setRegistrando(false)
+      alert("Ya existe un usuario registrado con ese DNI")
+      return
+    }
+
+    const { data: emailExistente } = await supabase
+      .from("estudiantes")
+      .select("id")
+      .eq("email", emailFinal)
+      .maybeSingle()
+
+    if (emailExistente) {
+      setRegistrando(false)
+      alert("Ya existe un usuario registrado con ese email")
+      return
+    }
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
-      email: email.trim(),
-      password
+      email: emailFinal,
+      password,
     })
 
     if (authError) {
-      setLoading(false)
+      setRegistrando(false)
       alert(authError.message)
       return
     }
 
-    const authUserId = authData?.user?.id || null
+    const codigo = generarCodigo(dniFinal, escuelaSeleccionada)
 
-    const { error: perfilError } = await supabase
+    const { error: insertError } = await supabase
       .from("estudiantes")
       .insert([
         {
-          nombre: nombre.trim(),
-          dni: String(dni).trim(),
-          email: email.trim(),
-          escuela_codigo: Number(escuela),
-          anio: String(anioNumero),
+          nombre: nombreFinal,
+          dni: dniFinal,
+          email: emailFinal,
+          escuela_codigo: Number(escuelaSeleccionada),
+          anio: String(anio),
           codigo,
           rol: "estudiante",
-          auth_user_id: authUserId
-        }
+          activo: true,
+          auth_user_id: authData.user?.id || null,
+        },
       ])
 
-    setLoading(false)
+    setRegistrando(false)
 
-    if (perfilError) {
-      alert(perfilError.message)
+    if (insertError) {
+      alert("Se creó el acceso, pero hubo un error al guardar el perfil: " + insertError.message)
       return
     }
 
-    alert("Registro exitoso")
-    router.push("/panel")
+    alert("Registro completado correctamente")
+    router.push("/login")
+  }
+
+  if (cargando) {
+    return (
+      <main className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-lg text-center">
+          Cargando...
+        </div>
+      </main>
+    )
   }
 
   return (
-    <main className="px-4 py-8 sm:px-6 sm:py-12">
-      <div className="mx-auto max-w-6xl grid gap-6 lg:grid-cols-2">
+    <main className="min-h-screen bg-slate-100 p-4 sm:p-6">
+      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-2">
         <section className="rounded-3xl bg-gradient-to-br from-blue-700 to-blue-900 p-8 text-white shadow-xl">
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-100">
             Registro
@@ -102,7 +185,7 @@ export default function Registro() {
           </h1>
 
           <p className="mt-5 max-w-xl text-base leading-relaxed text-blue-100 sm:text-lg">
-            Registrate para acceder a tu panel personal, tu carné digital, las novedades de tu escuela y los cuadernillos según el año que cursás.
+            Registrate para acceder a tu carné digital, cuadernillos, promociones y novedades de tu escuela.
           </p>
         </section>
 
@@ -110,14 +193,18 @@ export default function Registro() {
           <div className="space-y-4">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
-                Nombre
+                Nombre y apellido
               </label>
               <input
+                type="text"
                 className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
-                placeholder="Ingresá tu nombre"
+                placeholder="Ejemplo: Mariano González"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
               />
+              <p className="mt-2 text-xs text-slate-500">
+                Ingresá nombre y apellido completos.
+              </p>
             </div>
 
             <div>
@@ -125,11 +212,16 @@ export default function Registro() {
                 DNI
               </label>
               <input
+                type="text"
+                inputMode="numeric"
                 className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
-                placeholder="Ingresá tu DNI"
+                placeholder="Solo números"
                 value={dni}
-                onChange={(e) => setDni(e.target.value)}
+                onChange={(e) => setDni(limpiarDni(e.target.value))}
               />
+              <p className="mt-2 text-xs text-slate-500">
+                Se guarda sin puntos ni espacios.
+              </p>
             </div>
 
             <div>
@@ -139,10 +231,13 @@ export default function Registro() {
               <input
                 type="email"
                 className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
-                placeholder="Ingresá tu email"
+                placeholder="tuemail@gmail.com"
                 value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                onChange={(e) => setEmail(limpiarEmail(e.target.value))}
               />
+              <p className="mt-2 text-xs text-slate-500">
+                Se guarda en minúsculas y sin espacios.
+              </p>
             </div>
 
             <div>
@@ -152,7 +247,7 @@ export default function Registro() {
               <input
                 type="password"
                 className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
-                placeholder="Creá una contraseña"
+                placeholder="Mínimo 6 caracteres"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
               />
@@ -164,13 +259,13 @@ export default function Registro() {
               </label>
               <select
                 className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
-                value={escuela}
-                onChange={(e) => setEscuela(e.target.value)}
+                value={escuelaSeleccionada}
+                onChange={(e) => setEscuelaSeleccionada(e.target.value)}
               >
                 <option value="">Seleccionar escuela</option>
-                {escuelas.map((esc) => (
-                  <option key={esc.id} value={esc.codigo}>
-                    {esc.nombre}
+                {escuelas.map((escuela) => (
+                  <option key={escuela.id} value={escuela.codigo}>
+                    {escuela.nombre}
                   </option>
                 ))}
               </select>
@@ -197,11 +292,18 @@ export default function Registro() {
 
             <button
               onClick={registrar}
-              disabled={loading}
+              disabled={registrando}
               className="mt-2 w-full rounded-2xl bg-blue-600 px-6 py-4 text-base font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
             >
-              {loading ? "Registrando..." : "Registrarse"}
+              {registrando ? "Registrando..." : "Registrarme"}
             </button>
+
+            <p className="pt-2 text-center text-sm text-slate-600">
+              ¿Ya tenés cuenta?{" "}
+              <Link href="/login" className="font-medium text-blue-600 hover:underline">
+                Ingresar
+              </Link>
+            </p>
           </div>
         </section>
       </div>
