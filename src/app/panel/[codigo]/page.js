@@ -153,6 +153,15 @@ export default async function PanelPage({ params }) {
                   Escuelas
                 </Link>
 
+                {usuario.rol === "estudiante" && (
+                  <Link
+                    href="/activar-rol"
+                    className="block rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 font-medium transition hover:bg-blue-100"
+                  >
+                    Ingresar código de centro / FES
+                  </Link>
+                )}
+
                 {puedePublicar && (
                   <>
                     <Link
