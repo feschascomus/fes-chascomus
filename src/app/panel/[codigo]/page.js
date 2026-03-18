@@ -67,6 +67,9 @@ export default async function PanelPage({ params }) {
   const puedePublicar =
     usuario.rol === "centro" || usuario.rol === "fes"
 
+  const puedeIngresarCodigoRol =
+    usuario.rol === "estudiante" || usuario.rol === "centro"
+
   return (
     <main className="min-h-screen bg-slate-100 p-4 sm:p-6">
       <div className="mx-auto grid max-w-7xl gap-6 lg:grid-cols-[280px_1fr]">
@@ -153,7 +156,7 @@ export default async function PanelPage({ params }) {
                   Escuelas
                 </Link>
 
-                {usuario.rol === "estudiante" && (
+                {puedeIngresarCodigoRol && (
                   <Link
                     href="/activar-rol"
                     className="block rounded-2xl border border-blue-200 bg-blue-50 px-4 py-3 font-medium transition hover:bg-blue-100"
