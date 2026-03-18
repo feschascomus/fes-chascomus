@@ -199,22 +199,27 @@ export default function RegistroPage() {
         },
       ])
 
-    setRegistrando(false)
-
     if (insertError) {
+      setRegistrando(false)
       alert("Se creó el acceso, pero hubo un error al guardar el perfil: " + insertError.message)
       return
     }
 
-    if (rolFinal === "centro") {
-      alert("Registro completado. Tu cuenta quedó habilitada como centro.")
-    } else if (rolFinal === "fes") {
-      alert("Registro completado. Tu cuenta quedó habilitada como FES.")
-    } else {
-      alert("Registro completado correctamente")
+    const { error: loginError } = await supabase.auth.signInWithPassword({
+      email: emailFinal,
+      password,
+    })
+
+    setRegistrando(false)
+
+    if (loginError) {
+      alert("Registro completado correctamente. Ahora ingresá con tu cuenta.")
+      router.push("/login")
+      return
     }
 
-    router.push("/login")
+    router.replace("/panel")
+    router.refresh()
   }
 
   if (cargando) {
@@ -228,7 +233,7 @@ export default function RegistroPage() {
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 p-4 sm:p-6">
+    <main className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 sm:py-12">
       <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-2">
         <section className="rounded-3xl bg-gradient-to-br from-blue-700 to-blue-900 p-8 text-white shadow-xl">
           <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-100">
@@ -242,9 +247,31 @@ export default function RegistroPage() {
           <p className="mt-5 max-w-xl text-base leading-relaxed text-blue-100 sm:text-lg">
             Registrate para acceder a tu carné digital, cuadernillos, promociones y novedades de tu escuela.
           </p>
+
+          <div className="mt-8 rounded-2xl border border-white/20 bg-white/10 p-5">
+            <p className="text-sm font-semibold text-white">
+              Importante
+            </p>
+            <p className="mt-2 text-sm leading-relaxed text-blue-100">
+              Si usás un código de centro, debe corresponder a la escuela seleccionada.
+              Si usás un código FES, tu cuenta se registra directamente con ese rol.
+            </p>
+          </div>
         </section>
 
         <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
+          <div className="mb-6">
+            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
+              Nueva cuenta
+            </p>
+            <h2 className="mt-2 text-3xl font-bold text-slate-900">
+              Registrarme
+            </h2>
+            <p className="mt-3 text-slate-500">
+              Completá tus datos para crear tu cuenta.
+            </p>
+          </div>
+
           <div className="space-y-4">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -252,7 +279,7 @@ export default function RegistroPage() {
               </label>
               <input
                 type="text"
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
+                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500"
                 placeholder="Ingresá tu nombre y apellido"
                 value={nombre}
                 onChange={(e) => setNombre(e.target.value)}
@@ -267,7 +294,7 @@ export default function RegistroPage() {
                 type="text"
                 inputMode="numeric"
                 maxLength={8}
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
+                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500"
                 placeholder="Ingresá tu DNI"
                 value={dni}
                 onChange={(e) => setDni(limpiarDni(e.target.value))}
@@ -280,7 +307,7 @@ export default function RegistroPage() {
               </label>
               <input
                 type="email"
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
+                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500"
                 placeholder="Ingresá tu email"
                 value={email}
                 onChange={(e) => setEmail(limpiarEmail(e.target.value))}
@@ -293,7 +320,7 @@ export default function RegistroPage() {
               </label>
               <input
                 type="password"
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
+                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500"
                 placeholder="Ingresá tu contraseña"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
@@ -305,7 +332,7 @@ export default function RegistroPage() {
                 Escuela
               </label>
               <select
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
+                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500"
                 value={escuelaSeleccionada}
                 onChange={(e) => setEscuelaSeleccionada(e.target.value)}
               >
@@ -316,9 +343,6 @@ export default function RegistroPage() {
                   </option>
                 ))}
               </select>
-              <p className="mt-2 text-xs text-slate-500">
-                Si usás un código de centro, tiene que corresponder a la escuela seleccionada.
-              </p>
             </div>
 
             <div>
@@ -327,14 +351,11 @@ export default function RegistroPage() {
               </label>
               <input
                 type="text"
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
+                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500"
                 placeholder="Ingresá tu código si corresponde"
                 value={codigoRol}
                 onChange={(e) => setCodigoRol(e.target.value.toUpperCase())}
               />
-              <p className="mt-2 text-xs text-slate-500">
-                Usalo solo si vas a registrarte como centro o FES.
-              </p>
             </div>
 
             <div>
@@ -342,7 +363,7 @@ export default function RegistroPage() {
                 Año que cursa
               </label>
               <select
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900"
+                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500"
                 value={anio}
                 onChange={(e) => setAnio(e.target.value)}
               >
@@ -359,17 +380,20 @@ export default function RegistroPage() {
             <button
               onClick={registrar}
               disabled={registrando}
-              className="mt-2 w-full rounded-2xl bg-blue-600 px-6 py-4 text-base font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
+              className="w-full rounded-2xl bg-blue-600 px-6 py-4 text-base font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
             >
-              {registrando ? "Registrando..." : "Registrarme"}
+              {registrando ? "Creando cuenta..." : "Registrarme"}
             </button>
 
-            <p className="pt-2 text-center text-sm text-slate-600">
+            <div className="pt-2 text-center text-sm text-slate-600">
               ¿Ya tenés cuenta?{" "}
-              <Link href="/login" className="font-medium text-blue-600 hover:underline">
+              <Link
+                href="/login"
+                className="font-medium text-blue-600 hover:underline"
+              >
                 Ingresar
               </Link>
-            </p>
+            </div>
           </div>
         </section>
       </div>
