@@ -107,8 +107,8 @@ export default function RegistroPage() {
       return
     }
 
-    if (!codigoRolFinal && !escuelaSeleccionada) {
-      alert("Seleccioná una escuela o ingresá un código")
+    if (!escuelaSeleccionada) {
+      alert("Seleccioná una escuela")
       return
     }
 
@@ -139,7 +139,7 @@ export default function RegistroPage() {
     }
 
     let rolFinal = "estudiante"
-    let escuelaFinal = Number(escuelaSeleccionada)
+    const escuelaFinal = Number(escuelaSeleccionada)
 
     if (codigoRolFinal) {
       const { data: codigoValido } = await supabase
@@ -155,14 +155,18 @@ export default function RegistroPage() {
         return
       }
 
-      rolFinal = codigoValido.rol_destino
-
       if (codigoValido.rol_destino === "centro") {
-        escuelaFinal = Number(codigoValido.escuela_codigo)
-      } else if (!escuelaFinal) {
-        setRegistrando(false)
-        alert("Si te registrás con código FES, igual tenés que seleccionar tu escuela")
-        return
+        if (String(codigoValido.escuela_codigo) !== String(escuelaFinal)) {
+          setRegistrando(false)
+          alert("Este código no pertenece a tu escuela")
+          return
+        }
+
+        rolFinal = "centro"
+      }
+
+      if (codigoValido.rol_destino === "fes") {
+        rolFinal = "fes"
       }
     }
 
@@ -313,7 +317,7 @@ export default function RegistroPage() {
                 ))}
               </select>
               <p className="mt-2 text-xs text-slate-500">
-                Si usás un código de centro, la escuela se ajusta automáticamente.
+                Si usás un código de centro, tiene que corresponder a la escuela seleccionada.
               </p>
             </div>
 
