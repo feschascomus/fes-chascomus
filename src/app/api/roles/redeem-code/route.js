@@ -61,28 +61,61 @@ export async function POST(req) {
       return NextResponse.json({ error: "Código inválido" }, { status: 400 })
     }
 
-    const updateData = {
-      rol: codigoValido.rol_destino,
+    if (codigoValido.rol_destino === "centro") {
+      if (!codigoValido.escuela_codigo) {
+        return NextResponse.json(
+          { error: "El código de centro no tiene escuela asignada" },
+          { status: 400 }
+        )
+      }
+
+      if (String(perfil.escuela_codigo) !== String(codigoValido.escuela_codigo)) {
+        return NextResponse.json(
+          { error: "Este código no pertenece a tu escuela" },
+          { status: 400 }
+        )
+      }
+
+      const { error: updateError } = await adminSupabase
+        .from("estudiantes")
+        .update({
+          rol: "centro",
+        })
+        .eq("id", perfil.id)
+
+      if (updateError) {
+        return NextResponse.json({ error: updateError.message }, { status: 400 })
+      }
+
+      return NextResponse.json({
+        ok: true,
+        rol: "centro",
+      })
     }
 
-    if (codigoValido.rol_destino === "centro" && codigoValido.escuela_codigo) {
-      updateData.escuela_codigo = Number(codigoValido.escuela_codigo)
+    if (codigoValido.rol_destino === "fes") {
+      const { error: updateError } = await adminSupabase
+        .from("estudiantes")
+        .update({
+          rol: "fes",
+        })
+        .eq("id", perfil.id)
+
+      if (updateError) {
+        return NextResponse.json({ error: updateError.message }, { status: 400 })
+      }
+
+      return NextResponse.json({
+        ok: true,
+        rol: "fes",
+      })
     }
 
-    const { error: updateError } = await adminSupabase
-      .from("estudiantes")
-      .update(updateData)
-      .eq("id", perfil.id)
-
-    if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 400 })
-    }
-
-    return NextResponse.json({
-      ok: true,
-      rol: codigoValido.rol_destino,
-    })
+    return NextResponse.json({ error: "Código inválido" }, { status: 400 })
   } catch {
-    return NextResponse.json({ error: "Error interno del servidor" }, { status: 500 })
+    return NextResponse.json(
+      { error: "Error interno del servidor" },
+      { status: 500 }
+    )
   }
 }
