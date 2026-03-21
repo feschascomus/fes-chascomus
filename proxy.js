@@ -6,7 +6,7 @@ export async function proxy(req) {
 
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
     {
       cookies: {
         getAll() {
@@ -81,6 +81,24 @@ export async function proxy(req) {
     return NextResponse.redirect(url)
   }
 
+  // 🔒 BLOQUEO TOTAL DE /beta SOLO PARA TU EMAIL
+  if (pathname.startsWith("/beta")) {
+    const emailPermitido = (process.env.BETA_TESTER_EMAIL || "").trim().toLowerCase()
+    const emailUsuario = (user?.email || "").trim().toLowerCase()
+
+    if (!user || !usuarioActivo) {
+      const url = req.nextUrl.clone()
+      url.pathname = "/login"
+      return NextResponse.redirect(url)
+    }
+
+    if (!emailPermitido || emailUsuario !== emailPermitido) {
+      const url = req.nextUrl.clone()
+      url.pathname = "/panel"
+      return NextResponse.redirect(url)
+    }
+  }
+
   return res
 }
 
@@ -91,6 +109,7 @@ export const config = {
     "/admin-fes/:path*",
     "/publicar-novedad/:path*",
     "/publicar-cuadernillo/:path*",
+    "/beta/:path*",
     "/login",
     "/registro",
     "/recuperar",
