@@ -33,9 +33,15 @@ export async function proxy(req) {
     "/admin-fes",
     "/publicar-novedad",
     "/publicar-cuadernillo",
+    "/activar-rol",
   ]
 
-  const rutasAuth = ["/login", "/registro", "/recuperar", "/nueva-password"]
+  const rutasAuth = [
+    "/login",
+    "/registro",
+    "/recuperar",
+    "/nueva-password",
+  ]
 
   const requiereLogin = rutasPrivadas.some((ruta) =>
     pathname.startsWith(ruta)
@@ -50,7 +56,7 @@ export async function proxy(req) {
   if (user) {
     const { data: porAuthId } = await supabase
       .from("estudiantes")
-      .select("codigo,activo")
+      .select("codigo, activo")
       .eq("auth_user_id", user.id)
       .maybeSingle()
 
@@ -59,7 +65,7 @@ export async function proxy(req) {
     } else if (user.email) {
       const { data: porEmail } = await supabase
         .from("estudiantes")
-        .select("codigo,activo")
+        .select("codigo, activo")
         .eq("email", user.email)
         .maybeSingle()
 
@@ -81,10 +87,14 @@ export async function proxy(req) {
     return NextResponse.redirect(url)
   }
 
-  // 🔒 BLOQUEO TOTAL DE /beta SOLO PARA TU EMAIL
   if (pathname.startsWith("/beta")) {
-    const emailPermitido = (process.env.BETA_TESTER_EMAIL || "").trim().toLowerCase()
-    const emailUsuario = (user?.email || "").trim().toLowerCase()
+    const emailPermitido = String(process.env.BETA_TESTER_EMAIL || "")
+      .trim()
+      .toLowerCase()
+
+    const emailUsuario = String(user?.email || "")
+      .trim()
+      .toLowerCase()
 
     if (!user || !usuarioActivo) {
       const url = req.nextUrl.clone()
@@ -109,6 +119,7 @@ export const config = {
     "/admin-fes/:path*",
     "/publicar-novedad/:path*",
     "/publicar-cuadernillo/:path*",
+    "/activar-rol/:path*",
     "/beta/:path*",
     "/login",
     "/registro",
