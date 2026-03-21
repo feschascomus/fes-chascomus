@@ -17,6 +17,7 @@ export default function RegistroPage() {
   const [escuelaSeleccionada, setEscuelaSeleccionada] = useState("")
   const [anio, setAnio] = useState("")
   const [codigoRol, setCodigoRol] = useState("")
+  const [aceptaTerminos, setAceptaTerminos] = useState(false)
   const [cargando, setCargando] = useState(true)
   const [registrando, setRegistrando] = useState(false)
 
@@ -35,75 +36,30 @@ export default function RegistroPage() {
     setCargando(false)
   }
 
-  const limpiarDni = (valor) => {
-    return valor.replace(/\D/g, "").slice(0, 8)
-  }
-
-  const limpiarEmail = (valor) => {
-    return valor.trim().toLowerCase()
-  }
+  const limpiarDni = (valor) => valor.replace(/\D/g, "").slice(0, 8)
+  const limpiarEmail = (valor) => valor.trim().toLowerCase()
 
   const normalizarNombre = (valor) => {
     const limpio = valor.trim().replace(/\s+/g, " ")
-
     return limpio
       .split(" ")
       .filter(Boolean)
-      .map((parte) => parte.charAt(0).toUpperCase() + parte.slice(1).toLowerCase())
+      .map((p) => p.charAt(0).toUpperCase() + p.slice(1).toLowerCase())
       .join(" ")
-  }
-
-  const tieneNombreYApellido = (valor) => {
-    const limpio = valor.trim().replace(/\s+/g, " ")
-    const partes = limpio.split(" ").filter(Boolean)
-    return partes.length >= 2
-  }
-
-  const emailValido = (valor) => {
-    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(valor)
-  }
-
-  const dniValido = (valor) => {
-    return /^\d{8}$/.test(valor)
-  }
-
-  const generarCodigo = (dniValor, escuelaCodigo) => {
-    return `${dniValor}${escuelaCodigo}`
   }
 
   const registrar = async () => {
     const nombreFinal = normalizarNombre(nombre)
     const dniFinal = limpiarDni(dni)
     const emailFinal = limpiarEmail(email)
-    const codigoRolFinal = codigoRol.trim().toUpperCase()
 
     if (!nombreFinal || !dniFinal || !emailFinal || !password || !anio) {
-      alert("Completá todos los campos obligatorios")
+      alert("Completá todos los campos")
       return
     }
 
-    if (!tieneNombreYApellido(nombreFinal)) {
-      alert("Ingresá nombre y apellido")
-      return
-    }
-
-    if (!dniValido(dniFinal)) {
-      alert("El DNI debe tener exactamente 8 números")
-      return
-    }
-
-    if (/^(\d)\1{7}$/.test(dniFinal)) {
-      alert("Ingresá un DNI válido")
-      return
-    }
-
-    if (!emailValido(emailFinal)) {
-      alert("Ingresá un email válido")
-      return
-    }
-
-    if (password.length < 6) {
-      alert("La contraseña debe tener al menos 6 caracteres")
+    if (!aceptaTerminos) {
+      alert("Debés aceptar los términos y condiciones")
       return
     }
 
@@ -113,62 +69,6 @@ export default function RegistroPage() {
     }
 
     setRegistrando(true)
-
-    const { data: dniExistente } = await supabase
-      .from("estudiantes")
-      .select("id")
-      .eq("dni", dniFinal)
-      .maybeSingle()
-
-    if (dniExistente) {
-      setRegistrando(false)
-      alert("Ya existe un usuario registrado con ese DNI")
-      return
-    }
-
-    const { data: emailExistente } = await supabase
-      .from("estudiantes")
-      .select("id")
-      .eq("email", emailFinal)
-      .maybeSingle()
-
-    if (emailExistente) {
-      setRegistrando(false)
-      alert("Ya existe un usuario registrado con ese email")
-      return
-    }
-
-    let rolFinal = "estudiante"
-    const escuelaFinal = Number(escuelaSeleccionada)
-
-    if (codigoRolFinal) {
-      const { data: codigoValido } = await supabase
-        .from("codigos_roles")
-        .select("*")
-        .eq("codigo", codigoRolFinal)
-        .eq("activo", true)
-        .maybeSingle()
-
-      if (!codigoValido) {
-        setRegistrando(false)
-        alert("Código inválido")
-        return
-      }
-
-      if (codigoValido.rol_destino === "centro") {
-        if (String(codigoValido.escuela_codigo) !== String(escuelaFinal)) {
-          setRegistrando(false)
-          alert("Este código no pertenece a tu escuela")
-          return
-        }
-
-        rolFinal = "centro"
-      }
-
-      if (codigoValido.rol_destino === "fes") {
-        rolFinal = "fes"
-      }
-    }
 
     const { data: authData, error: authError } = await supabase.auth.signUp({
       email: emailFinal,
@@ -181,7 +81,7 @@ export default function RegistroPage() {
       return
     }
 
-    const codigo = generarCodigo(dniFinal, escuelaFinal)
+    const codigo = `${dniFinal}${escuelaSeleccionada}`
 
     const { error: insertError } = await supabase
       .from("estudiantes")
@@ -190,212 +90,127 @@ export default function RegistroPage() {
           nombre: nombreFinal,
           dni: dniFinal,
           email: emailFinal,
-          escuela_codigo: escuelaFinal,
+          escuela_codigo: Number(escuelaSeleccionada),
           anio: String(anio),
           codigo,
-          rol: rolFinal,
+          rol: "estudiante",
           activo: true,
+          acepta_terminos: true,
+          fecha_aceptacion: new Date(),
           auth_user_id: authData.user?.id || null,
         },
       ])
 
     if (insertError) {
       setRegistrando(false)
-      alert("Se creó el acceso, pero hubo un error al guardar el perfil: " + insertError.message)
+      alert(insertError.message)
       return
     }
 
-    const { error: loginError } = await supabase.auth.signInWithPassword({
+    await supabase.auth.signInWithPassword({
       email: emailFinal,
       password,
     })
 
     setRegistrando(false)
 
-    if (loginError) {
-      alert("Registro completado correctamente. Ahora ingresá con tu cuenta.")
-      router.push("/login")
-      return
-    }
-
     router.replace("/panel")
     router.refresh()
   }
 
   if (cargando) {
-    return (
-      <main className="min-h-screen bg-slate-100 flex items-center justify-center p-4">
-        <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-lg text-center">
-          Cargando...
-        </div>
-      </main>
-    )
+    return <div className="p-10 text-center">Cargando...</div>
   }
 
   return (
-    <main className="min-h-screen bg-slate-100 px-4 py-8 sm:px-6 sm:py-12">
-      <div className="mx-auto grid max-w-6xl gap-6 lg:grid-cols-2">
-        <section className="rounded-3xl bg-gradient-to-br from-blue-700 to-blue-900 p-8 text-white shadow-xl">
-          <p className="text-sm font-semibold uppercase tracking-[0.25em] text-blue-100">
-            Registro
+    <main className="min-h-screen bg-slate-100 p-6">
+      <div className="max-w-xl mx-auto bg-white p-8 rounded-3xl shadow-xl space-y-4">
+        <h1 className="text-3xl font-bold">Registro</h1>
+
+        <input
+          placeholder="Nombre y apellido"
+          value={nombre}
+          onChange={(e) => setNombre(e.target.value)}
+          className="w-full border p-3 rounded-xl"
+        />
+
+        <input
+          placeholder="DNI"
+          value={dni}
+          onChange={(e) => setDni(limpiarDni(e.target.value))}
+          className="w-full border p-3 rounded-xl"
+        />
+
+        <input
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(limpiarEmail(e.target.value))}
+          className="w-full border p-3 rounded-xl"
+        />
+
+        <input
+          type="password"
+          placeholder="Contraseña"
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          className="w-full border p-3 rounded-xl"
+        />
+
+        <select
+          value={escuelaSeleccionada}
+          onChange={(e) => setEscuelaSeleccionada(e.target.value)}
+          className="w-full border p-3 rounded-xl"
+        >
+          <option value="">Seleccionar escuela</option>
+          {escuelas.map((e) => (
+            <option key={e.id} value={e.codigo}>
+              {e.nombre}
+            </option>
+          ))}
+        </select>
+
+        <select
+          value={anio}
+          onChange={(e) => setAnio(e.target.value)}
+          className="w-full border p-3 rounded-xl"
+        >
+          <option value="">Seleccionar año</option>
+          <option value="1">1°</option>
+          <option value="2">2°</option>
+          <option value="3">3°</option>
+          <option value="4">4°</option>
+          <option value="5">5°</option>
+          <option value="6">6°</option>
+        </select>
+
+        <div className="flex items-start gap-3">
+          <input
+            type="checkbox"
+            checked={aceptaTerminos}
+            onChange={(e) => setAceptaTerminos(e.target.checked)}
+          />
+          <p className="text-sm">
+            Acepto los{" "}
+            <a href="/terminos" target="_blank" className="text-blue-600 underline">
+              términos y condiciones
+            </a>
           </p>
+        </div>
 
-          <h1 className="mt-4 text-4xl font-bold leading-tight sm:text-5xl">
-            Creá tu cuenta
-          </h1>
+        <button
+          onClick={registrar}
+          disabled={registrando}
+          className="w-full bg-blue-600 text-white p-4 rounded-xl font-semibold"
+        >
+          {registrando ? "Registrando..." : "Registrarme"}
+        </button>
 
-          <p className="mt-5 max-w-xl text-base leading-relaxed text-blue-100 sm:text-lg">
-            Registrate para acceder a tu carné digital, cuadernillos, promociones y novedades de tu escuela.
-          </p>
-
-          <div className="mt-8 rounded-2xl border border-white/20 bg-white/10 p-5">
-            <p className="text-sm font-semibold text-white">
-              Importante
-            </p>
-            <p className="mt-2 text-sm leading-relaxed text-blue-100">
-              Si usás un código de centro, debe corresponder a la escuela seleccionada.
-              Si usás un código FES, tu cuenta se registra directamente con ese rol.
-            </p>
-          </div>
-        </section>
-
-        <section className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl sm:p-8">
-          <div className="mb-6">
-            <p className="text-sm font-semibold uppercase tracking-wide text-blue-600">
-              Nueva cuenta
-            </p>
-            <h2 className="mt-2 text-3xl font-bold text-slate-900">
-              Registrarme
-            </h2>
-            <p className="mt-3 text-slate-500">
-              Completá tus datos para crear tu cuenta.
-            </p>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Nombre y apellido
-              </label>
-              <input
-                type="text"
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500"
-                placeholder="Ingresá tu nombre y apellido"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                DNI
-              </label>
-              <input
-                type="text"
-                inputMode="numeric"
-                maxLength={8}
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500"
-                placeholder="Ingresá tu DNI"
-                value={dni}
-                onChange={(e) => setDni(limpiarDni(e.target.value))}
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Email
-              </label>
-              <input
-                type="email"
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500"
-                placeholder="Ingresá tu email"
-                value={email}
-                onChange={(e) => setEmail(limpiarEmail(e.target.value))}
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Contraseña
-              </label>
-              <input
-                type="password"
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500"
-                placeholder="Ingresá tu contraseña"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Escuela
-              </label>
-              <select
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500"
-                value={escuelaSeleccionada}
-                onChange={(e) => setEscuelaSeleccionada(e.target.value)}
-              >
-                <option value="">Seleccionar escuela</option>
-                {escuelas.map((escuela) => (
-                  <option key={escuela.id} value={escuela.codigo}>
-                    {escuela.nombre}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Código de rol (opcional)
-              </label>
-              <input
-                type="text"
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500"
-                placeholder="Ingresá tu código si corresponde"
-                value={codigoRol}
-                onChange={(e) => setCodigoRol(e.target.value.toUpperCase())}
-              />
-            </div>
-
-            <div>
-              <label className="mb-2 block text-sm font-medium text-slate-700">
-                Año que cursa
-              </label>
-              <select
-                className="block w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-blue-500"
-                value={anio}
-                onChange={(e) => setAnio(e.target.value)}
-              >
-                <option value="">Seleccionar año</option>
-                <option value="1">1° año</option>
-                <option value="2">2° año</option>
-                <option value="3">3° año</option>
-                <option value="4">4° año</option>
-                <option value="5">5° año</option>
-                <option value="6">6° año</option>
-              </select>
-            </div>
-
-            <button
-              onClick={registrar}
-              disabled={registrando}
-              className="w-full rounded-2xl bg-blue-600 px-6 py-4 text-base font-semibold text-white transition hover:bg-blue-700 disabled:opacity-60"
-            >
-              {registrando ? "Creando cuenta..." : "Registrarme"}
-            </button>
-
-            <div className="pt-2 text-center text-sm text-slate-600">
-              ¿Ya tenés cuenta?{" "}
-              <Link
-                href="/login"
-                className="font-medium text-blue-600 hover:underline"
-              >
-                Ingresar
-              </Link>
-            </div>
-          </div>
-        </section>
+        <p className="text-center text-sm">
+          ¿Ya tenés cuenta?{" "}
+          <Link href="/login" className="text-blue-600 underline">
+            Ingresar
+          </Link>
+        </p>
       </div>
     </main>
   )
