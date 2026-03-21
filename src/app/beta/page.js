@@ -17,19 +17,28 @@ export default function BetaHomePage() {
         </section>
 
         <section className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
-          <Link href="/beta/cursos" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl transition hover:shadow-2xl">
+          <Link
+            href="/beta/cursos"
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl transition hover:shadow-2xl"
+          >
             <p className="text-sm font-semibold text-blue-600">Beta</p>
             <h2 className="mt-2 text-2xl font-bold text-slate-900">Cursos</h2>
-            <p className="mt-3 text-slate-600">Listado, detalle y gestión de cursos.</p>
+            <p className="mt-3 text-slate-600">Listado y pruebas del módulo de cursos.</p>
           </Link>
 
-          <Link href="/beta/mensajes" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl transition hover:shadow-2xl">
+          <Link
+            href="/beta/mensajes"
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl transition hover:shadow-2xl"
+          >
             <p className="text-sm font-semibold text-blue-600">Beta</p>
             <h2 className="mt-2 text-2xl font-bold text-slate-900">Mensajes</h2>
-            <p className="mt-3 text-slate-600">Contacto con centro, FES o ambos.</p>
+            <p className="mt-3 text-slate-600">Pruebas de contacto con centro y FES.</p>
           </Link>
 
-          <Link href="/beta/calendario" className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl transition hover:shadow-2xl">
+          <Link
+            href="/beta/calendario"
+            className="rounded-3xl border border-slate-200 bg-white p-6 shadow-xl transition hover:shadow-2xl"
+          >
             <p className="text-sm font-semibold text-blue-600">Beta</p>
             <h2 className="mt-2 text-2xl font-bold text-slate-900">Calendario</h2>
             <p className="mt-3 text-slate-600">Eventos institucionales y agenda personal.</p>
